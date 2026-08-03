@@ -77,7 +77,7 @@ namespace VRSuya.Installer {
 			EditorGUILayout.BeginHorizontal();
 			GUILayout.Space(BorderX);
 			GUI.backgroundColor = Color.cyan;
-			if (GUILayout.Button(GetTranslatedString("String_Replace"), GUILayout.Height(40))) {
+			if (GUILayout.Button(GetTranslatedString("String_Replace"), GUILayout.Height(40f))) {
 				string ReturnCode = AvatarRebuilderInstance.RequestRebuildAvatar();
 				string DialogString = (ReturnCode == "COMPLETED")
 					? string.Format(GetTranslatedString("COMPLETED_PATCH"), AvatarRebuilderInstance.OldAvatarGameObject.name)

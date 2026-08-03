@@ -52,9 +52,9 @@ namespace VRSuya.Installer {
 			EditorGUILayout.EndHorizontal();
 			EditorGUILayout.BeginHorizontal();
 			GUILayout.Space(BorderX);
-			EditorGUILayout.LabelField(GetTranslatedString("String_PatchData"), GUILayout.Width(99));
+			EditorGUILayout.LabelField(GetTranslatedString("String_PatchData"), GUILayout.Width(99f));
 			HDiffFilePath = EditorGUILayout.TextField(HDiffFilePath);
-			if (GUILayout.Button(GetTranslatedString("String_Browse"), GUILayout.Width(72))) {
+			if (GUILayout.Button(GetTranslatedString("String_Browse"), GUILayout.Width(72f))) {
 				string TargetPath = EditorUtility.OpenFilePanel("VRSuya HDiffPatcher", Application.dataPath, "hdiff");
 				if (!string.IsNullOrEmpty(TargetPath)) {
 					HDiffFilePath = TargetPath;
@@ -78,7 +78,7 @@ namespace VRSuya.Installer {
 			GUILayout.Space(BorderX);
 			GUI.backgroundColor = Color.cyan;
 			GUI.enabled = IsReadyToPatch();
-			if (GUILayout.Button(GetTranslatedString("String_Update"), GUILayout.Height(40))) {
+			if (GUILayout.Button(GetTranslatedString("String_Update"), GUILayout.Height(40f))) {
 				CanRevert = RequestAvatarPatch();
 			}
 			GUI.enabled = true;

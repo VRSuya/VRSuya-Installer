@@ -79,7 +79,7 @@ namespace VRSuya.Installer {
 			GUILayout.Space(BorderX);
 			GUILayout.FlexibleSpace();
 			GUI.backgroundColor = Color.cyan;
-			if (GUILayout.Button(GetTranslatedString("String_Update"), GUILayout.Width(ButtonWidth * 1.44f), GUILayout.Height(40))) {
+			if (GUILayout.Button(GetTranslatedString("String_Update"), GUILayout.Width(ButtonWidth * 1.44f), GUILayout.Height(40f))) {
 				string StatusCode = AnimationOffsetUpdaterInstance.RequestUpdateAnimationClips();
 				EditorUtility.DisplayDialog("VRSuya AnimationOffsetUpdater",
 					GetTranslatedString(StatusCode),

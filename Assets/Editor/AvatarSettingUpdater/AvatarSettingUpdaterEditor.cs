@@ -17,7 +17,7 @@ namespace VRSuya.Installer {
 			LanguageIndex = EditorGUILayout.Popup(GetTranslatedString("String_Language"), LanguageIndex, LanguageOption);
 			EditorGUILayout.Space();
 			EditorGUILayout.HelpBox(GetTranslatedString("String_AvatarSettingUpdater"), MessageType.Info);
-			if (GUILayout.Button(GetTranslatedString("String_OpenBOOTH"), GUILayout.Height(30))) {
+			if (GUILayout.Button(GetTranslatedString("String_OpenBOOTH"), GUILayout.Height(30f))) {
 				Application.OpenURL("https://accounts.booth.pm/orders");
 				AvatarSettingUpdater TargetComponent = (AvatarSettingUpdater)target;
 				Undo.DestroyObjectImmediate(TargetComponent);
