@@ -2,10 +2,10 @@
     "name": "com.vrsuya.installer.Editor",
     "rootNamespace": "",
     "references": [
+        "GUID:0bae3e2f09a0c454da701a2e8b59d048",
         "GUID:eb4da792d48120c40a88f603f1380414",
         "GUID:5718fb738711cd34ea54e9553040911d",
         "GUID:62ced99b048af7f4d8dfe4bed8373d76",
-        "GUID:0bae3e2f09a0c454da701a2e8b59d048",
         "GUID:901e56b065a857d4483a77f8cae73588",
         "GUID:fc900867c0f47cd49b6e2ae4ef907300"
     ],
