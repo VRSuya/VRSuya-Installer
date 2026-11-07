@@ -1,6 +1,6 @@
 {
   "name": "com.vrsuya.installer",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "displayName": "VRSuya - Installer",
   "description": "Automatic install VRSuya assets program for VRChat avatars",
   "unity": "2019.4",
@@ -20,6 +20,8 @@
   "repo": "https://vrsuya.com/vpm/vpm.json",
   "vpmDependencies": {
     "com.vrchat.avatars": ">=3.0.9",
-    "com.vrsuya.core": ">=1.1.0"
+    "com.vrsuya.core": ">=1.1.0",
+    "nadena.dev.ndmf": ">=0.1.0",
+    "nadena.dev.modular-avatar": ">=0.8.0"
   }
 }
