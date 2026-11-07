@@ -1,3 +1,4 @@
+#if MODULAR_AVATAR
 using nadena.dev.modular_avatar.core;
 using Object = UnityEngine.Object;
 using System;
@@ -14,6 +15,7 @@ using VRC.SDK3.Avatars.Components;
 using VRC.SDK3.Avatars.ScriptableObjects;
 using TrackingType = VRC.SDKBase.VRC_AnimatorTrackingControl.TrackingType;
 using VRSuya.Modular;
+using VRSuya.Core;
 
 /*
  * VRSuya Installer — AFK Tools
@@ -31,7 +33,9 @@ namespace VRSuya.Installer.AFKTools
         [SerializeField] private GameObject avatar;
         [SerializeField] private List<GameObject> prefabs = new List<GameObject> { null };
         private Vector2 scroll;
-        private string error, success;
+        private string error;
+        private bool usedSdkDefault;
+        private int displayedLanguage;
         private GameObject applied;
         private Texture2D headerLogo;
 
@@ -43,6 +47,7 @@ namespace VRSuya.Installer.AFKTools
         }
         private void OnEnable()
         {
+            displayedLanguage = Translator.LanguageIndex;
             headerLogo = AssetDatabase.LoadAssetAtPath<Texture2D>("Packages/com.vrsuya.installer/Icon/VRSuya_Logo.png");
             minSize = new Vector2(440, 520);
             if (prefabs == null || prefabs.Count == 0) prefabs = new List<GameObject> { null };
@@ -57,10 +62,17 @@ namespace VRSuya.Installer.AFKTools
                     if (headerLogo)
                         GUI.DrawTexture(GUILayoutUtility.GetRect(32, 32, GUILayout.ExpandWidth(false)), headerLogo, ScaleMode.ScaleToFit);
                 }
-                GUILayout.Label("캐릭터와 AFK를 넣고 적용하세요.", EditorStyles.wordWrappedLabel);
+                Translator.LanguageIndex = EditorGUILayout.Popup(Translator.GetTranslatedString("String_Language"),
+                    Translator.LanguageIndex, Translator.LanguageOption);
+                if (displayedLanguage != Translator.LanguageIndex)
+                {
+                    displayedLanguage = Translator.LanguageIndex;
+                    error = null;
+                }
+                GUILayout.Label(AfkText.Intro, EditorStyles.wordWrappedLabel);
                 GUILayout.Space(22);
-                GUILayout.Label("1. 캐릭터", EditorStyles.boldLabel);
-                GUILayout.Label("Hierarchy에서 끌어다 놓으세요.", EditorStyles.miniLabel);
+                GUILayout.Label(AfkText.AvatarSection, EditorStyles.boldLabel);
+                GUILayout.Label(AfkText.AvatarHint, EditorStyles.miniLabel);
                 var nextAvatar = (GameObject)EditorGUILayout.ObjectField(avatar, typeof(GameObject), true, GUILayout.Height(40));
                 if (nextAvatar != avatar)
                 {
@@ -70,8 +82,8 @@ namespace VRSuya.Installer.AFKTools
                 }
                 if (avatar) GUILayout.Label("✓ " + avatar.name, EditorStyles.miniLabel);
                 GUILayout.Space(20);
-                GUILayout.Label("2. AFK 프리팹", EditorStyles.boldLabel);
-                GUILayout.Label("Project에서 사용할 프리팹을 순서대로 넣으세요.", EditorStyles.miniLabel);
+                GUILayout.Label(AfkText.PrefabSection, EditorStyles.boldLabel);
+                GUILayout.Label(AfkText.PrefabHint, EditorStyles.miniLabel);
                 using (new EditorGUI.DisabledScope(!avatar))
                 {
                     scroll = EditorGUILayout.BeginScrollView(scroll, GUILayout.MinHeight(75), GUILayout.MaxHeight(position.height), GUILayout.ExpandHeight(true));
@@ -90,22 +102,32 @@ namespace VRSuya.Installer.AFKTools
                         { prefabs.RemoveAt(i); if (prefabs.Count == 0) prefabs.Add(null); ClearMessage(); GUIUtility.ExitGUI(); }
                     }
                     var drop = GUILayoutUtility.GetRect(100, 45, GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(true));
-                    GUI.Box(drop, "+ 프리팹을 여기에 놓기");
+                    GUI.Box(drop, AfkText.DropPrefabs);
                     HandleDrop(drop);
                     EditorGUILayout.EndScrollView();
-                    if (GUILayout.Button("+ 프리팹 추가", GUILayout.Height(27))) { prefabs.Add(null); ClearMessage(); GUIUtility.ExitGUI(); }
+                    if (GUILayout.Button(AfkText.AddPrefab, GUILayout.Height(27))) { prefabs.Add(null); ClearMessage(); GUIUtility.ExitGUI(); }
                 }
                 GUILayout.Space(12);
                 if (!string.IsNullOrEmpty(error)) EditorGUILayout.HelpBox(error, MessageType.Error);
-                if (!string.IsNullOrEmpty(success)) EditorGUILayout.HelpBox(success, MessageType.Info);
-                GUILayout.Label("기존 AFK는 통합 결과로 교체됩니다. Ctrl+Z로 되돌릴 수 있습니다.", EditorStyles.wordWrappedMiniLabel);
+                if (applied)
+                {
+                    var message = string.Format(AfkText.Applied, avatar.name);
+                    if (usedSdkDefault) message += "\n" + AfkText.UsedDefault;
+                    EditorGUILayout.HelpBox(message, MessageType.Info);
+                }
+                GUILayout.Label(AfkText.UndoHint, EditorStyles.wordWrappedMiniLabel);
+                GUILayout.Label(AfkText.OutputFolderHint, EditorStyles.wordWrappedMiniLabel);
                 GUILayout.Space(8);
                 using (new EditorGUI.DisabledScope(!avatar || !prefabs.Any(p => p) || EditorApplication.isPlayingOrWillChangePlaymode))
-                    if (GUILayout.Button("적용", GUILayout.Height(44))) { Apply(); GUIUtility.ExitGUI(); }
-                if (applied && GUILayout.Button("적용된 AFK 선택", EditorStyles.linkLabel)) Selection.activeGameObject = applied;
+                    if (GUILayout.Button(Translator.GetTranslatedString("String_Apply"), GUILayout.Height(44))) { Apply(); GUIUtility.ExitGUI(); }
+                if (applied && GUILayout.Button(AfkText.SelectResult, EditorStyles.linkLabel)) Selection.activeGameObject = applied;
             }
         }
-        private void ClearMessage() { error = success = null; applied = null; }
+        private void OnInspectorUpdate()
+        {
+            if (displayedLanguage != Translator.LanguageIndex) Repaint();
+        }
+        private void ClearMessage() { error = null; applied = null; usedSdkDefault = false; }
         private void Swap(int a, int b) { var old = prefabs[a]; prefabs[a] = prefabs[b]; prefabs[b] = old; ClearMessage(); }
         private void HandleDrop(Rect rect)
         {
@@ -131,11 +153,10 @@ namespace VRSuya.Installer.AFKTools
             ClearMessage();
             try
             {
-                EditorUtility.DisplayProgressBar("AFK Tools", "캐릭터에 AFK를 적용하고 있습니다…", .5f);
+                EditorUtility.DisplayProgressBar("AFK Tools", AfkText.Applying, .5f);
                 var result = SceneInstaller.Apply(avatar, prefabs);
                 applied = result.instance;
-                success = avatar.name + "에 AFK를 적용했습니다.";
-                if (result.defaultFallbackReason != null) success += "\n0번에는 VRChat 기본 AFK를 사용했습니다.";
+                usedSdkDefault = result.defaultFallbackReason != null;
                 Selection.activeGameObject = applied;
             }
             catch (Exception e) { error = e.Message; Debug.LogWarning("[AFK Tools] " + e.Message); }
@@ -144,6 +165,539 @@ namespace VRSuya.Installer.AFKTools
     }
 
     #endregion
+
+    // Core Translator owns the shared language selection (English, Korean, Japanese).
+    internal static class AfkText
+    {
+        private static string InLanguage(string english, string korean, string japanese)
+        {
+            switch (Translator.LanguageIndex)
+            {
+                case 1: return korean;
+                case 2: return japanese;
+                default: return english;
+            }
+        }
+
+        internal static string Intro => InLanguage(
+            "Add your avatar and AFK prefabs, then click Apply.",
+            "캐릭터와 AFK를 넣고 적용하세요.",
+            "アバターとAFKプレハブを追加して「適用」を押してください。");
+        internal static string AvatarSection => InLanguage(
+            "1. Avatar",
+            "1. 캐릭터",
+            "1. アバター");
+        internal static string AvatarHint => InLanguage(
+            "Drag your avatar here from the Hierarchy.",
+            "Hierarchy에서 끌어다 놓으세요.",
+            "Hierarchyからアバターをドラッグしてください。");
+        internal static string PrefabSection => InLanguage(
+            "2. AFK prefabs",
+            "2. AFK 프리팹",
+            "2. AFKプレハブ");
+        internal static string PrefabHint => InLanguage(
+            "Add prefabs from the Project window in the order you want them to appear.",
+            "Project에서 사용할 프리팹을 순서대로 넣으세요.",
+            "Projectから、表示したい順番にプレハブを追加してください。");
+        internal static string DropPrefabs => InLanguage(
+            "+ Drop prefabs here",
+            "+ 프리팹을 여기에 놓기",
+            "+ ここにプレハブをドロップ");
+        internal static string AddPrefab => InLanguage(
+            "+ Add prefab",
+            "+ 프리팹 추가",
+            "+ プレハブを追加");
+        internal static string UndoHint => InLanguage(
+            "Apply replaces the existing AFK installation. Press Ctrl+Z to undo.",
+            "기존 AFK는 통합 결과로 교체됩니다. Ctrl+Z로 되돌릴 수 있습니다.",
+            "既存のAFKは統合したAFKに置き換わります。Ctrl+Zで元に戻せます。");
+        internal static string OutputFolderHint => InLanguage(
+            "The combined prefab and its assets are saved in " + BuildSettings.DefaultOutputFolder + ".",
+            "통합 결과물은 " + BuildSettings.DefaultOutputFolder + " 폴더에 저장됩니다.",
+            "統合したプレハブと関連アセットは " + BuildSettings.DefaultOutputFolder + " フォルダーに保存されます。");
+        internal static string SelectResult => InLanguage(
+            "Select applied AFK",
+            "적용된 AFK 선택",
+            "適用したAFKを選択");
+        internal static string Applying => InLanguage(
+            "Applying AFK to the avatar…",
+            "캐릭터에 AFK를 적용하고 있습니다…",
+            "アバターにAFKを適用しています…");
+        internal static string Applied => InLanguage(
+            "Applied AFK to {0}.",
+            "{0}에 AFK를 적용했습니다.",
+            "{0}にAFKを適用しました。");
+        internal static string UsedDefault => InLanguage(
+            "VRChat’s default AFK is used for option 0.",
+            "0번에는 VRChat 기본 AFK를 사용했습니다.",
+            "0番にはVRChat標準のAFKを使用しました。");
+        internal static string NeedSceneAvatar => InLanguage(
+            "Choose an avatar from the Hierarchy.",
+            "Hierarchy에 있는 캐릭터를 넣어주세요.",
+            "Hierarchyからアバターを選択してください。");
+        internal static string AvatarNotFound => InLanguage(
+            "No VRChat avatar was found on this object or its parents.",
+            "이 오브젝트에서 VRChat 캐릭터를 찾지 못했습니다.",
+            "このオブジェクトとその親からVRChatアバターを見つけられませんでした。");
+        internal static string NeedHumanoid => InLanguage(
+            "Choose an avatar with a Humanoid rig.",
+            "Humanoid로 설정된 캐릭터를 넣어주세요.",
+            "Humanoidに設定したアバターを選択してください。");
+        internal static string PrefabStage => InLanguage(
+            "Choose an avatar in the scene. Exit Prefab Mode first.",
+            "프리팹 편집 화면이 아닌 씬의 캐릭터를 넣어주세요.",
+            "プレハブモードを終了し、シーン内のアバターを選択してください。");
+        internal static string ExitPlayMode => InLanguage(
+            "Exit Play Mode before applying.",
+            "Play 모드를 종료한 뒤 적용해주세요.",
+            "再生モードを終了してから適用してください。");
+        internal static string NeedPrefab => InLanguage(
+            "Add at least one AFK prefab.",
+            "AFK 프리팹을 하나 이상 넣어주세요.",
+            "AFKプレハブを1つ以上追加してください。");
+        internal static string DuplicateInput => InLanguage(
+            "The same prefab appears twice. Keep one copy.",
+            "같은 프리팹이 두 번 들어 있습니다. 하나만 남겨주세요.",
+            "同じプレハブが重複しています。1つだけ残してください。");
+        internal static string ProjectPrefab => InLanguage(
+            "Drag prefabs from the Project window into the AFK list.",
+            "AFK 칸에는 Project 창의 프리팹을 넣어주세요.",
+            "ProjectウィンドウからAFK欄にプレハブを追加してください。");
+        internal static string ModifiedComponents => InLanguage(
+            "Objects or components have been added to or removed from {0}. Resolve these changes before applying.",
+            "{0}에 별도로 추가하거나 제거한 오브젝트/컴포넌트가 있습니다. 이 설치를 정리한 뒤 적용해주세요.",
+            "{0}には追加または削除されたオブジェクトやコンポーネントがあります。変更を整理してから適用してください。");
+        internal static string SceneOverrides => InLanguage(
+            "{0} has scene overrides. Save your changes as a separate prefab and add that prefab.",
+            "{0}에 씬에서 수정한 설정이 있습니다. 수정 내용을 별도 프리팹으로 저장한 뒤 그 프리팹을 넣어주세요.",
+            "{0}にはシーン上で変更した設定があります。変更を別のプレハブとして保存し、そのプレハブを追加してください。");
+        internal static string TransformOverrides => InLanguage(
+            "The position, rotation or scale of {0} was changed in the scene. Save the changes as a separate prefab and add it.",
+            "{0}의 위치·회전·크기가 씬에서 변경되어 있습니다. 설정을 별도 프리팹으로 저장한 뒤 그 프리팹을 넣어주세요.",
+            "{0}の位置・回転・スケールがシーン上で変更されています。変更を別のプレハブとして保存し、そのプレハブを追加してください。");
+        internal static string ConflictingInstallation => InLanguage(
+            "Cannot safely combine the avatar’s '{0}' with AFK. If it is an AFK prefab, add it to the list. Otherwise detach that installation.",
+            "캐릭터의 '{0}'이 AFK와 함께 작동하는 구성을 확인할 수 없습니다. 함께 쓸 AFK 프리팹이면 목록에 추가하고, 그 외에는 해당 설치를 분리해주세요.",
+            "アバターの「{0}」とAFKの併用を確認できません。AFKプレハブなら一覧に追加し、それ以外なら該当する設定を切り離してください。");
+        internal static string MultipleInstallations => InLanguage(
+            "Several combined AFK installations were found. Keep one before applying.",
+            "이전에 합친 AFK가 여러 개 있습니다. 하나만 남긴 뒤 적용해주세요.",
+            "統合済みのAFKが複数あります。1つだけ残してから適用してください。");
+        internal static string NameInUse => InLanguage(
+            "The avatar already has a child named '{0}'. Rename that object.",
+            "캐릭터 아래의 '{0}' 이름이 이미 사용 중입니다. 해당 오브젝트 이름을 바꿔주세요.",
+            "アバター直下に「{0}」というオブジェクトがあります。そのオブジェクトの名前を変更してください。");
+        internal static string UndoApply => InLanguage(
+            "Apply AFK",
+            "AFK 적용",
+            "AFKを適用");
+        internal static string InstallFailed => InLanguage(
+            "Could not add the combined AFK to the avatar.",
+            "통합 AFK를 캐릭터에 넣지 못했습니다.",
+            "統合したAFKをアバターに追加できませんでした。");
+        internal static string NeedMotionSource => InLanguage(
+            "Add at least one prefab to import motions from.",
+            "모션을 가져올 프리팹을 하나 이상 추가하세요.",
+            "モーションの読み込み元となるプレハブを1つ以上追加してください。");
+        internal static string DuplicatePrefab => InLanguage(
+            "The same prefab was added more than once.",
+            "동일한 프리팹이 중복되었습니다.",
+            "同じプレハブが複数回追加されています。");
+        internal static string EmptySlot => InLanguage(
+            "An input prefab slot is empty.",
+            "비어 있는 입력 프리팹 슬롯이 있습니다.",
+            "入力プレハブの欄に空きがあります。");
+        internal static string NeedDefaultSource => InLanguage(
+            "Choose an avatar or an avatar-specific default prefab for option 0.",
+            "0번 기본 AFK를 읽을 캐릭터 또는 캐릭터용 기본 프리팹을 지정하세요.",
+            "0番のAFKを読み込むアバター、またはそのアバター用のデフォルトプレハブを指定してください。");
+        internal static string DefaultMismatch => InLanguage(
+            ": The motion for option 0 does not match the SDK default AFK.",
+            ": 0번 모션이 SDK 기본 AFK와 일치하지 않습니다.",
+            "：0番のモーションがSDK標準のAFKと一致しません。");
+        internal static string MixedAvatars => InLanguage(
+            "The list contains prefabs made for different avatars.",
+            "서로 다른 캐릭터용 프리팹이 섞여 있습니다.",
+            "異なるアバター用のプレハブが混在しています。");
+        internal static string SelectMotion => InLanguage(
+            "Select at least one motion to include.",
+            "출력할 모션을 하나 이상 선택하세요.",
+            "出力するモーションを1つ以上選択してください。");
+        internal static string InvalidIds => InLanguage(
+            "TypeAFK values must be unique and between 1 and 255. Option 0 is the avatar’s default AFK.",
+            "TypeAFK 번호는 중복 없는 1~255여야 합니다. 0은 캐릭터 기본 AFK입니다.",
+            "TypeAFKには1～255の重複しない番号を指定してください。0番はアバターのデフォルトAFKです。");
+        internal static string NeedMenuLabel => InLanguage(
+            "Enter a menu label.",
+            "메뉴 이름을 입력하세요.",
+            "メニュー名を入力してください。");
+        internal static string InvalidInitialType => InLanguage(
+            "The initial selection is not among the enabled motions.",
+            "초기 선택 번호가 활성 모션에 없습니다.",
+            "初期選択の番号に対応する有効なモーションがありません。");
+        internal static string InvalidFolder => InLanguage(
+            "Choose a valid output folder under Assets/.",
+            "출력 폴더는 Assets/ 아래의 올바른 경로여야 합니다.",
+            "Assets/配下の有効な出力フォルダーを指定してください。");
+        internal static string InvalidPrefabName => InLanguage(
+            "Enter a valid name for the output prefab.",
+            "올바른 출력 프리팹 이름을 입력하세요.",
+            "出力プレハブに有効な名前を指定してください。");
+        internal static string NeedMenuName => InLanguage(
+            "Enter a name for the combined menu.",
+            "통합 메뉴 이름을 입력하세요.",
+            "統合メニューの名前を入力してください。");
+        internal static string KeepMaskRemoval => InLanguage(
+            "Advanced: Keep the source RemoveFXMask component. This affects every FX mask on the avatar.",
+            "고급 설정: 원본 RemoveFXMask 기능을 유지합니다. 아바타의 모든 FX 마스크에 영향을 줍니다.",
+            "詳細設定：元のRemoveFXMaskを保持します。アバターのすべてのFXマスクに影響します。");
+        internal static string OmitMaskRemoval => InLanguage(
+            "RemoveFXMask is excluded from the output. If the avatar’s FX uses masks, check the result on that avatar.",
+            "원본의 RemoveFXMask는 출력에서 제외합니다. 캐릭터 기본 FX에 마스크가 있다면 대상 아바타에서 반드시 확인하세요.",
+            "出力からRemoveFXMaskを除外します。アバターのFXでマスクを使用している場合は、実際のアバターで結果を確認してください。");
+        internal static string NeedDescriptor => InLanguage(
+            "The validation avatar needs a VRC Avatar Descriptor.",
+            "확인용 아바타에는 VRC Avatar Descriptor가 필요합니다.",
+            "検証用アバターにはVRC Avatar Descriptorが必要です。");
+        internal static string ExistingReplace => InLanguage(
+            "The avatar already has an Action Replace installation. Replace the existing AFK installation when installing the result.",
+            "대상 아바타에 Action Replace 설치가 이미 있습니다. 통합 결과를 설치할 때 기존 AFK 설치를 대체해야 합니다.",
+            "アバターにはすでにAction Replace設定があります。統合結果を導入する際に既存のAFKを置き換えてください。");
+        internal static string StructuralCheck => InLanguage(
+            "This check verifies the avatar’s structure. Test playback in VRChat after applying.",
+            "대상 아바타 검사는 구조 확인입니다. 이 창에서 아바타를 수정하거나 VRChat 재생을 검증하지 않습니다.",
+            "ここではアバターの構造を確認します。適用後にVRChatで再生を確認してください。");
+        internal static string ReplaceOriginal => InLanguage(
+            "Replace the existing AFK with the generated prefab. Installing both causes an Action Replace conflict.",
+            "결과 프리팹은 기존 AFK 설치를 대체해서 사용하세요. 원본과 결과를 함께 넣으면 Action Replace가 충돌합니다.",
+            "既存のAFKを生成したプレハブに置き換えてください。両方を入れるとAction Replaceが競合します。");
+        internal static string DefaultWarning => InLanguage(
+            "Using the VRChat default AFK for option 0. ",
+            "0번에 VRChat 기본 AFK를 사용했습니다. ",
+            "0番にはVRChat標準のAFKを使用しました。 ");
+        internal static string NeedProjectAsset => InLanguage(
+            "Choose a prefab asset from the Project window.",
+            "Project 창의 프리팹 에셋을 넣으세요.",
+            "Projectウィンドウからプレハブアセットを指定してください。");
+        internal static string MissingScript => InLanguage(
+            "Missing script on object: ",
+            "누락된 스크립트가 있습니다: ",
+            "スクリプトが見つからないオブジェクト： ");
+        internal static string UnsupportedInstallLayout => InLanguage(
+            "Use exactly one Action installation and only FX installations alongside it.",
+            "Action 설치 1개와 FX 설치만 있는 규격을 지원합니다.",
+            "Action設定は1つ、そのほかはFX設定のみの構成に対応しています。");
+        internal static string UnsupportedFxLayout => InLanguage(
+            "Use one combined FX, or an Absolute FX for the avatar and a Relative FX for props.",
+            "통합 FX 1개 또는 캐릭터용 Absolute FX와 소품용 Relative FX 한 쌍이 필요합니다.",
+            "統合FXを1つ、またはアバター用のAbsolute FXと小物用のRelative FXを1つずつ指定してください。");
+        internal static string UnsupportedMAParameter => InLanguage(
+            "Renamed, internal or prefix-based MA parameters require a separate adapter.",
+            "이름 변경 / 내부 / 접두사 MA 파라미터는 별도 어댑터가 필요합니다.",
+            "名前変更、内部または接頭辞を使うMAパラメーターには専用の変換処理が必要です。");
+        internal static string SplitFxPaths => InLanguage(
+            "Separate FX installations require one Absolute and one Relative FX.",
+            "분리된 FX는 Absolute와 Relative가 하나씩 필요합니다.",
+            "分割したFXにはAbsoluteとRelativeが1つずつ必要です。");
+        internal static string SyncedBehaviour => InLanguage(
+            "{0}/{1}: Cannot preserve the synced layer’s Behaviour override.",
+            "{0}/{1}: 동기화 레이어의 Behaviour override를 보존할 수 없습니다.",
+            "{0}/{1}：同期レイヤーのBehaviourオーバーライドを保持できません。");
+        internal static string EntryMismatch => InLanguage(
+            "Action and FX use different AFK entry conditions.",
+            "Action과 FX의 AFK 진입 조건이 다릅니다.",
+            "ActionとFXでAFKの開始条件が異なります。");
+        internal static string BranchMismatch => InLanguage(
+            "Action and FX have different TypeAFK branches.",
+            "Action과 FX의 TypeAFK 분기가 다릅니다.",
+            "ActionとFXでTypeAFKの分岐が異なります。");
+        internal static string MaskedLayer => InLanguage(
+            "Input layers with an AvatarMask require separate review.",
+            "입력 레이어에 AvatarMask가 있는 변형은 별도 검토가 필요합니다.",
+            "入力レイヤーにAvatarMaskがある構成は個別の確認が必要です。");
+        internal static string UnsupportedBehaviour => InLanguage(
+            "Unsupported Animator Behaviour: ",
+            "지원하지 않는 Animator Behaviour: ",
+            "未対応のAnimator Behaviour： ");
+        internal static string AnimationEvents => InLanguage(
+            "This clip contains Animation Events. Check that they will not run twice.",
+            "Animation Event가 있는 클립은 중복 실행 방지 검토가 필요합니다.",
+            "Animation Eventを含むクリップがあります。イベントが二重に実行されないか確認してください。");
+        internal static string ExtraStateMachine => InLanguage(
+            "A child state machine outside the AFK branches was found.",
+            "AFK 분기 외의 하위 상태 머신이 있습니다.",
+            "AFK分岐以外のサブステートマシンがあります。");
+        internal static string InvalidRecipe => InLanguage(
+            "Unsupported Recipe format.",
+            "지원하지 않는 Recipe 형식입니다.",
+            "未対応のRecipe形式です。");
+        internal static string SourceChanged => InLanguage(
+            "Settings or source assets have changed. Run the analysis again.",
+            "설정 또는 원본 에셋이 변경되었습니다. 다시 분석하세요.",
+            "設定または元のアセットが変更されました。もう一度解析してください。");
+        internal static string DuplicateObjectPath => InLanguage(
+            "Product object paths overlap: ",
+            "상품 오브젝트 경로가 겹칩니다: ",
+            "商品のオブジェクトパスが重複しています： ");
+        internal static string ParameterConflict => InLanguage(
+            "Conflicting MA parameter settings: ",
+            "MA 파라미터 설정 충돌: ",
+            "MAパラメーター設定が競合しています： ");
+        internal static string SaveFailed => InLanguage(
+            "Could not save the prefab.",
+            "프리팹 저장에 실패했습니다.",
+            "プレハブを保存できませんでした。");
+        internal static string DefaultLabel => InLanguage(
+            "Default AFK",
+            "기본 AFK",
+            "デフォルトAFK");
+        internal static string NextPage => InLanguage(
+            "Next",
+            "다음",
+            "次へ");
+        internal static string InvalidMergeCount => InLanguage(
+            "Unexpected number of MA installations on the combined prefab.",
+            "중앙 MA 설치 개수가 잘못되었습니다.",
+            "統合プレハブのMA設定数が正しくありません。");
+        internal static string ExternalGraphReference => InLanguage(
+            "The output graph still refers to a source or unsaved object: ",
+            "출력 그래프에 원본 또는 저장되지 않은 참조가 남았습니다: ",
+            "出力グラフに元のオブジェクトまたは未保存の参照が残っています： ");
+        internal static string Severity(IssueLevel level)
+        {
+            switch (level)
+            {
+                case IssueLevel.Warning: return InLanguage("Warning", "경고", "警告");
+                case IssueLevel.Error: return InLanguage("Error", "오류", "エラー");
+                default: return InLanguage("Info", "안내", "情報");
+            }
+        }
+
+        internal static string ReportTitle => InLanguage(
+            "# VRSuya AFK Tools generation report\n\n",
+            "# VRSuya AFK Tools 생성 보고서\n\n",
+            "# VRSuya AFK Tools 生成レポート\n\n");
+        internal static string ReportTime => InLanguage(
+            "Generated: ",
+            "생성 시간: ",
+            "生成日時： ");
+        internal static string ReportOutput => InLanguage(
+            "\nOutput: `{0}`\n\nThe generated prefab uses the original models, materials, textures, VRSuya Installer and Modular Avatar. It adds no tool-specific runtime component. Apply installs it on the selected scene avatar.",
+            "\n출력: `{0}`\n\n원본 상품 에셋은 수정하지 않습니다. 생성물은 원본 모델·마테리얼·텍스처 및 기존 VRSuya Installer/MA에 의존합니다. 툴 전용 런타임 컴포넌트는 없습니다. 적용 버튼은 생성 후 선택한 씬 캐릭터에 결과를 설치합니다.",
+            "\n出力先：`{0}`\n\n生成したプレハブは元のモデル・マテリアル・テクスチャ、VRSuya Installer、Modular Avatarを使用します。ツール専用のランタイムコンポーネントは追加しません。「適用」で選択中のシーンアバターに導入します。");
+        internal static string ReportMotions => InLanguage(
+            "\n## Motions\n\n| TypeAFK | Menu |\n|---|---|\n| 0 | Default AFK ({0}) |",
+            "\n## 모션\n\n| TypeAFK | 메뉴 |\n|---|---|\n| 0 | 기본 AFK ({0}) |",
+            "\n## モーション\n\n| TypeAFK | メニュー |\n|---|---|\n| 0 | デフォルトAFK ({0}) |");
+        internal static string ReportInstallation => InLanguage(
+            "\n## Installation\n\nApply places the combined prefab under the avatar and replaces the recognized AFK installation. Ctrl+Z undoes the scene change. Generated assets are kept.\n\nKeep the output root name and Modules hierarchy. Run an NDMF test build. In VRChat, check the default and each motion, early exit, switching and remote sync.",
+            "\n## 적용\n\n적용 버튼은 통합 프리팹을 캐릭터 아래에 넣고 확인된 기존 AFK 설치를 교체합니다. Ctrl+Z로 씬 변경을 되돌릴 수 있습니다. 생성 에셋은 남습니다.\n\n결과 루트 이름 및 Modules 계층을 유지하세요. NDMF 테스트 빌드와 VRChat에서 기본/각 모션/중도 해제/모션 전환/원격 동기화를 확인하세요.",
+            "\n## 適用\n\n「適用」は統合プレハブをアバターの子に配置し、認識した既存のAFKを置き換えます。Ctrl+Zでシーンの変更を元に戻せます。生成したアセットは残ります。\n\nルート名とModulesの階層を維持してください。NDMFテストビルドを行い、VRChatでデフォルトと各モーション、途中解除、切り替え、リモート同期を確認してください。");
+        internal static string ReportValidation => InLanguage(
+            "\n## Validation\n\nSaved graph references and installation counts passed validation. Test playback and upload separately. More-AFK is supported for the Phone setup.",
+            "\n## 검증 범위\n\n저장된 그래프 참조와 설치 개수 검사는 통과했습니다. 이 생성은 실제 아바타 재생 또는 업로드 검증을 대신하지 않습니다. More-AFK는 Phone 구조를 지원합니다.",
+            "\n## 検証範囲\n\n保存したグラフの参照と設定数を確認しました。実際のアバターでの再生とアップロードは別途確認してください。More-AFKはPhone構成に対応しています。");
+        internal static string DriverConflict => InLanguage(
+            "{0} / {1}: Conflicting shared Parameter Driver settings ({2}).",
+            "{0} / {1}: 공통 Parameter Driver 설정 충돌 ({2}).",
+            "{0} / {1}：共通のParameter Driver設定が競合しています（{2}）。");
+        internal static string ParameterTypeConflict => InLanguage(
+            "Conflicting parameter types: ",
+            "파라미터 타입 충돌: ",
+            "パラメーターの型が競合しています： ");
+        internal static string SingleBranchTransition => InLanguage(
+            "Cannot convert transition conditions for this single AFK branch: ",
+            "단일 AFK 분기의 전환 조건을 변환할 수 없습니다: ",
+            "単一AFK分岐の遷移条件を変換できません： ");
+        internal static string SingleBranchConditions => InLanguage(
+            "A single AFK branch needs AFK on and off conditions: ",
+            "단일 AFK 분기에는 AFK 켜기·끄기 조건이 필요합니다: ",
+            "単一AFK分岐にはAFKのオン・オフ条件が必要です： ");
+        internal static string OutsideBranch => InLanguage(
+            "Transition targets a state outside the branch: ",
+            "분기 밖 상태로 향하는 전이: ",
+            "分岐の外にあるステートへの遷移です： ");
+        internal static string InternalTypeDriver => InLanguage(
+            "A TypeAFK driver inside a branch requires separate conversion.",
+            "분기 내부 TypeAFK 드라이버는 별도 변환 검토가 필요합니다.",
+            "分岐内のTypeAFKドライバーには個別の変換が必要です。");
+        internal static string UnsavedReference => InLanguage(
+            "Cannot save this reference in the output: ",
+            "출력에 저장할 수 없는 참조가 있습니다: ",
+            "出力に保存できない参照があります： ");
+        internal static string SyncedMotionNotClip => InLanguage(
+            "The synced motion is not an animation clip: ",
+            "동기화된 모션이 클립이 아닙니다: ",
+            "同期モーションがアニメーションクリップではありません： ");
+        internal static string CommonFxBlendTree => InLanguage(
+            "Cannot merge a BlendTree in a shared FX state: ",
+            "공통 FX 상태의 BlendTree를 합칠 수 없습니다: ",
+            "共通FXステートのBlendTreeを統合できません： ");
+        internal static string CurveCollision => InLanguage(
+            "Curves overlap after remapping the clip path: ",
+            "클립 경로 변환 후 커브가 겹칩니다: ",
+            "クリップのパス変換後にカーブが重複しました： ");
+        internal static string ExplicitRelativeRoot => InLanguage(
+            "An explicit Relative Path Root is not supported: ",
+            "명시적 Relative Path Root는 현재 지원하지 않습니다: ",
+            "明示的なRelative Path Rootには対応していません： ");
+        internal static string MissingBinding => InLanguage(
+            "{0} / {1}: Cannot find the target of '{2}' ({3}). Product path: {4}, avatar: {5}.",
+            "{0} / {1}: '{2}' ({3})의 대상을 확인할 수 없습니다. 상품 경로: {4}, 캐릭터: {5}",
+            "{0} / {1}：「{2}」（{3}）の対象が見つかりません。商品内のパス：{4}、アバター：{5}");
+        internal static string Unspecified => InLanguage(
+            "not specified",
+            "미지정",
+            "未指定");
+        internal static string CommonBlendTree => InLanguage(
+            "Cannot merge a BlendTree in a shared state: ",
+            "공통 상태의 BlendTree 병합은 지원하지 않습니다: ",
+            "共通ステートのBlendTreeの統合には対応していません： ");
+        internal static string OverlappingCurves => InLanguage(
+            "{0}: Kept the earlier values for {2} overlapping curves in {1}. Example: {3}",
+            "{0}: {1}의 중복 커브 {2}개에 앞서 합친 값을 유지합니다. 예: {3}",
+            "{0}：{1}の重複カーブ{2}件には先に統合した値を使用します。例：{3}");
+        internal static string AvatarDefaultReason => InLanguage(
+            "Avatar default AFK: ",
+            "캐릭터 기본 AFK: ",
+            "アバターのデフォルトAFK： ");
+        internal static string MultipleActionSlots => InLanguage(
+            "The avatar Descriptor has multiple Action slots.",
+            "캐릭터 Descriptor에 Action 슬롯이 여러 개입니다.",
+            "アバターのDescriptorにActionスロットが複数あります。");
+        internal static string UnknownActionPath => InLanguage(
+            "Cannot identify the AFK path in the Action layer.",
+            "단일 Action 레이어의 AFK 경로를 식별할 수 없습니다.",
+            "ActionレイヤーのAFK経路を特定できません。");
+        internal static string MissingSdkAction => InLanguage(
+            "Check the VRChat SDK default Action controller.",
+            "VRChat SDK 기본 Action 컨트롤러를 확인해주세요.",
+            "VRChat SDK標準のActionコントローラーを確認してください。");
+        internal static string InvalidSdkAfk => InLanguage(
+            "Could not read the VRChat SDK default AFK.",
+            "VRChat SDK 기본 AFK를 읽지 못했습니다.",
+            "VRChat SDK標準のAFKを読み込めませんでした。");
+        internal static string UnsupportedDefaultFx => InLanguage(
+            "Cannot preserve the avatar’s default AFK FX layer structure: ",
+            "캐릭터의 기본 AFK FX 레이어 구성을 그대로 통합할 수 없습니다: ",
+            "アバターのデフォルトAFKのFXレイヤー構成を保持できません： ");
+        internal static string FxExitClone => InLanguage(
+            "Could not copy the FX exit motion: ",
+            "FX 종료 모션을 복제할 수 없습니다: ",
+            "FXの終了モーションを複製できません： ");
+        internal static string AvatarFx => InLanguage(
+            "Avatar FX ",
+            "캐릭터 FX ",
+            "アバターFX ");
+        internal static string DefaultEntry => InLanguage(
+            "Cannot identify the entry condition for TypeAFK 0.",
+            "TypeAFK 0번 진입 조건을 구분할 수 없습니다.",
+            "TypeAFK 0番の開始条件を特定できません。");
+        internal static string DefaultBoundary => InLanguage(
+            "Cannot identify the boundaries of the TypeAFK 0 sub-state machine.",
+            "TypeAFK 0번 하위 상태 머신의 경계를 확인할 수 없습니다.",
+            "TypeAFK 0番のサブステートマシンの範囲を特定できません。");
+        internal static string UnknownEntryExit => InLanguage(
+            "Cannot identify a unique AFK entry and exit path.",
+            "AFK 진입·종료 경로를 하나로 식별할 수 없습니다.",
+            "AFKの開始・終了経路を1つに特定できません。");
+        internal static string UnknownExit => InLanguage(
+            "Cannot identify the AFK exit path.",
+            "AFK 종료 경로를 확인할 수 없습니다.",
+            "AFKの終了経路を特定できません。");
+        internal static string LayerWeights => InLanguage(
+            "{0}/{1} changes the weights of {2}. This layer control and its reset on exit cannot be merged.",
+            "{0}/{1}에서 {2}의 가중치를 변경합니다. 이 레이어 제어와 종료 시 복원은 아직 통합할 수 없습니다.",
+            "{0}/{1}で{2}のウェイトを変更しています。このレイヤー制御と終了時の復元には対応していません。");
+        internal static string StateControl => InLanguage(
+            "{0} uses an unsupported state behaviour or control.",
+            "{0}의 동작 또는 제어 방식은 아직 지원하지 않습니다.",
+            "{0}の動作または制御方式には対応していません。");
+        internal static string StateConditions => InLanguage(
+            "Cannot preserve the transition conditions of {0}.",
+            "{0}의 전환 조건을 보존할 수 없습니다.",
+            "{0}の遷移条件を保持できません。");
+        internal static string LeavesDefault => InLanguage(
+            "Cannot identify the transition from {0} out of branch 0.",
+            "{0}에서 0번 분기 밖으로 나가는 전이를 확인할 수 없습니다.",
+            "{0}から0番分岐の外へ出る遷移を特定できません。");
+        internal static string MissingOffCondition => InLanguage(
+            "Cannot identify the AFK off condition.",
+            "AFK 해제 조건을 확인할 수 없습니다.",
+            "AFKを解除する条件を特定できません。");
+        internal static string OtherTransitions => InLanguage(
+            "The same state machine contains transitions unrelated to AFK.",
+            "AFK 외 전환이 같은 상태 머신에 있습니다.",
+            "同じステートマシンにAFK以外の遷移があります。");
+        internal static string DefaultFxExitClone => InLanguage(
+            "Could not copy the default AFK FX exit motion: ",
+            "기본 AFK FX 종료 모션을 복제할 수 없습니다: ",
+            "デフォルトAFKのFX終了モーションを複製できません： ");
+        internal static string OverrideCycle => InLanguage(
+            "Circular Animator Override reference.",
+            "순환 Animator Override 참조입니다.",
+            "Animator Overrideの参照が循環しています。");
+        internal static string InputLayerCount => InLanguage(
+            "Each input controller must have one internal layer. This controller cannot be merged without losing a layer.",
+            "현재 지원 규격은 입력 컨트롤러 내부 레이어 1개입니다. 알 수 없는 레이어는 임의로 누락하지 않습니다.",
+            "入力コントローラーの内部レイヤーは1つにしてください。この構成ではすべてのレイヤーを保持して統合できません。");
+        internal static string NeedAfkBool => InLanguage(
+            ": An AFK Bool parameter is required.",
+            ": AFK Bool 파라미터가 필요합니다.",
+            "：AFKのBoolパラメーターが必要です。");
+        internal static string MissingPrepare => InLanguage(
+            "Unsupported controller: the Prepare AFK state is missing: ",
+            "Prepare AFK 상태가 없는 미지원 컨트롤러입니다: ",
+            "Prepare AFKステートがないため、このコントローラーには対応していません： ");
+        internal static string SingleEntry => InLanguage(
+            ": Cannot identify the entry path for a single AFK branch.",
+            ": 단일 AFK 분기의 진입 경로를 확인할 수 없습니다.",
+            "：単一AFK分岐の開始経路を特定できません。");
+        internal static string SyncedSingleOnly => InLanguage(
+            ": Synced auxiliary layers are supported only with a single AFK branch.",
+            ": 동기화된 보조 레이어는 단일 AFK 분기에서만 지원합니다.",
+            "：同期補助レイヤーは単一AFK分岐でのみ使用できます。");
+        internal static string NeedTypeInt => InLanguage(
+            ": Selectable AFK requires a TypeAFK Int parameter.",
+            ": 선택형 AFK에는 TypeAFK Int 파라미터가 필요합니다.",
+            "：選択式AFKにはTypeAFKのIntパラメーターが必要です。");
+        internal static string SharedState => InLanguage(
+            "Two or more branches share the same state.",
+            "둘 이상의 분기가 같은 상태를 공유합니다.",
+            "複数の分岐が同じステートを共有しています。");
+        internal static string NeedEquals => InLanguage(
+            "An AFK entry branch needs exactly one TypeAFK Equals condition.",
+            "AFK 진입 분기에 TypeAFK Equals 조건이 정확히 하나 필요합니다.",
+            "AFKの開始分岐にはTypeAFK Equals条件が1つだけ必要です。");
+        internal static string InvalidBranch => InLanguage(
+            "A TypeAFK branch is duplicated or invalid.",
+            "중복 또는 잘못된 TypeAFK 분기입니다.",
+            "TypeAFKの分岐が重複しているか無効です。");
+        internal static string NotIndependentBranch => InLanguage(
+            "The AFK branch is not an independent sub-state machine.",
+            "AFK 분기를 독립 하위 상태 머신으로 확인할 수 없습니다.",
+            "AFK分岐を独立したサブステートマシンとして認識できません。");
+        internal static string SameDestination => InLanguage(
+            "Multiple TypeAFK values point to the same branch.",
+            "여러 TypeAFK 번호가 같은 분기를 가리킵니다.",
+            "複数のTypeAFK番号が同じ分岐を指しています。");
+        internal static string MissingDefault => InLanguage(
+            "The AFK_Default branch for option 0 is missing.",
+            "0번 AFK_Default 분기가 없습니다.",
+            "0番のAFK_Default分岐がありません。");
+        internal static string RangeCondition => InLanguage(
+            "TypeAFK range conditions cannot be converted.",
+            "TypeAFK 범위 조건은 현재 변환을 지원하지 않습니다.",
+            "TypeAFKの範囲条件は変換できません。");
+        internal static string ForeignType => InLanguage(
+            "An AFK branch refers to a different motion number. A dedicated adapter is required.",
+            "하나의 AFK 분기가 다른 모션 번호를 참조합니다. 전용 어댑터가 필요합니다.",
+            "AFK分岐が別のモーション番号を参照しています。専用の変換処理が必要です。");
+        internal static string OutputUnderAssets => InLanguage(
+            "The output folder must be under Assets.",
+            "출력은 Assets 아래여야 합니다.",
+            "出力先はAssets配下に指定してください。");
+    }
 
     #region 적용 순서와 씬 교체
 
@@ -166,13 +720,13 @@ namespace VRSuya.Installer.AFKTools
         public static GameObject ResolveAvatar(GameObject obj)
         {
             if (!obj || EditorUtility.IsPersistent(obj) || !obj.scene.IsValid() || !obj.scene.isLoaded || EditorSceneManager.IsPreviewScene(obj.scene))
-                throw new InvalidOperationException("Hierarchy에 있는 캐릭터를 넣어주세요.");
+                throw new InvalidOperationException(AfkText.NeedSceneAvatar);
             var avatar = obj.GetComponentInParent<VRCAvatarDescriptor>(true);
-            if (!avatar) throw new InvalidOperationException("이 오브젝트에서 VRChat 캐릭터를 찾지 못했습니다.");
+            if (!avatar) throw new InvalidOperationException(AfkText.AvatarNotFound);
             var animator = avatar.GetComponent<Animator>();
-            if (!animator || !animator.avatar || !animator.isHuman) throw new InvalidOperationException("Humanoid로 설정된 캐릭터를 넣어주세요.");
+            if (!animator || !animator.avatar || !animator.isHuman) throw new InvalidOperationException(AfkText.NeedHumanoid);
             if (PrefabStageUtility.GetPrefabStage(avatar.gameObject) != null)
-                throw new InvalidOperationException("프리팹 편집 화면이 아닌 씬의 캐릭터를 넣어주세요.");
+                throw new InvalidOperationException(AfkText.PrefabStage);
             return avatar.gameObject;
         }
 
@@ -192,36 +746,36 @@ namespace VRSuya.Installer.AFKTools
 
         public static SceneApplyResult Apply(GameObject selectedAvatar, IEnumerable<GameObject> prefabs)
         {
-            if (EditorApplication.isPlayingOrWillChangePlaymode) throw new InvalidOperationException("Play 모드를 종료한 뒤 적용해주세요.");
+            if (EditorApplication.isPlayingOrWillChangePlaymode) throw new InvalidOperationException(AfkText.ExitPlayMode);
             var avatar = ResolveAvatar(selectedAvatar);
             var inputs = prefabs?.Where(p => p).ToList() ?? new List<GameObject>();
-            if (inputs.Count == 0) throw new InvalidOperationException("AFK 프리팹을 하나 이상 넣어주세요.");
-            if (inputs.Distinct().Count() != inputs.Count) throw new InvalidOperationException("같은 프리팹이 두 번 들어 있습니다. 하나만 남겨주세요.");
+            if (inputs.Count == 0) throw new InvalidOperationException(AfkText.NeedPrefab);
+            if (inputs.Distinct().Count() != inputs.Count) throw new InvalidOperationException(AfkText.DuplicateInput);
             if (inputs.Any(p => !EditorUtility.IsPersistent(p) || !AssetDatabase.GetAssetPath(p).EndsWith(".prefab", StringComparison.OrdinalIgnoreCase)))
-                throw new InvalidOperationException("AFK 칸에는 Project 창의 프리팹을 넣어주세요.");
+                throw new InvalidOperationException(AfkText.ProjectPrefab);
 
             var installations = FindInstallations(avatar, inputs.ToHashSet());
             foreach (var installation in installations)
             {
                 // Scene edits must not silently disappear when replacing an installation.
                 if (PrefabUtility.GetAddedGameObjects(installation.root).Count > 0 || PrefabUtility.GetAddedComponents(installation.root).Count > 0 || PrefabUtility.GetRemovedComponents(installation.root).Count > 0)
-                    throw new InvalidOperationException(installation.root.name + "에 별도로 추가하거나 제거한 오브젝트/컴포넌트가 있습니다. 이 설치를 정리한 뒤 적용해주세요.");
+                    throw new InvalidOperationException(string.Format(AfkText.ModifiedComponents, installation.root.name));
                 if (PrefabUtility.HasPrefabInstanceAnyOverrides(installation.root, false))
-                    throw new InvalidOperationException(installation.root.name + "에 씬에서 수정한 설정이 있습니다. 수정 내용을 별도 프리팹으로 저장한 뒤 그 프리팹을 넣어주세요.");
+                    throw new InvalidOperationException(string.Format(AfkText.SceneOverrides, installation.root.name));
                 var assetRoot = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabUtility.GetPrefabAssetPathOfNearestInstanceRoot(installation.root));
                 if (installation.root.transform.localPosition != assetRoot.transform.localPosition || installation.root.transform.localRotation != assetRoot.transform.localRotation || installation.root.transform.localScale != assetRoot.transform.localScale)
-                    throw new InvalidOperationException(installation.root.name + "의 위치·회전·크기가 씬에서 변경되어 있습니다. 설정을 별도 프리팹으로 저장한 뒤 그 프리팹을 넣어주세요.");
+                    throw new InvalidOperationException(string.Format(AfkText.TransformOverrides, installation.root.name));
             }
             foreach (var merge in avatar.GetComponentsInChildren<ModularAvatarMergeAnimator>(true))
             {
                 if (installations.Any(i => merge.transform.IsChildOf(i.root.transform))) continue;
                 bool usesAfk = merge.animator && GraphUtility.BaseController(merge.animator) && GraphUtility.BaseController(merge.animator).parameters.Any(p => p.name == "AFK" || p.name == "TypeAFK");
                 if (merge.layerType == VRCAvatarDescriptor.AnimLayerType.Action && merge.mergeAnimatorMode == MergeAnimatorMode.Replace || usesAfk)
-                    throw new InvalidOperationException("캐릭터의 '" + merge.gameObject.name + "'이 AFK와 함께 작동하는 구성을 확인할 수 없습니다. 함께 쓸 AFK 프리팹이면 목록에 추가하고, 그 외에는 해당 설치를 분리해주세요.");
+                    throw new InvalidOperationException(string.Format(AfkText.ConflictingInstallation, merge.gameObject.name));
             }
             var settings = new BuildSettings { prefabs = inputs };
             var previous = installations.Where(i => i.previous != null).ToArray();
-            if (previous.Length > 1) throw new InvalidOperationException("이전에 합친 AFK가 여러 개 있습니다. 하나만 남긴 뒤 적용해주세요.");
+            if (previous.Length > 1) throw new InvalidOperationException(AfkText.MultipleInstallations);
             if (previous.Length == 1)
             {
                 settings.motions = previous[0].previous.motions;
@@ -231,19 +785,19 @@ namespace VRSuya.Installer.AFKTools
             settings.sceneAvatar = avatar;
             // Canonical root name must stay unique because prop clips use avatar-relative paths.
             if (avatar.transform.Cast<Transform>().Any(t => t.name == settings.prefabName && !installations.Any(i => i.root == t.gameObject)))
-                throw new InvalidOperationException("캐릭터 아래의 '" + settings.prefabName + "' 이름이 이미 사용 중입니다. 해당 오브젝트 이름을 바꿔주세요.");
+                throw new InvalidOperationException(string.Format(AfkText.NameInUse, settings.prefabName));
             var analysis = Analyzer.Inspect(settings, usePrefabOrder: true);
             var generated = Generator.GenerateMapped(analysis);
 
             Undo.IncrementCurrentGroup(); int undoGroup = Undo.GetCurrentGroup();
-            Undo.SetCurrentGroupName("AFK 적용");
+            Undo.SetCurrentGroupName(AfkText.UndoApply);
             try
             {
                 var instance = (GameObject)PrefabUtility.InstantiatePrefab(generated.prefab, avatar.scene);
-                if (!instance) throw new InvalidOperationException("통합 AFK를 캐릭터에 넣지 못했습니다.");
-                Undo.RegisterCreatedObjectUndo(instance, "AFK 적용");
-                Undo.SetTransformParent(instance.transform, avatar.transform, "AFK 적용");
-                Undo.RecordObject(instance.transform, "AFK 적용");
+                if (!instance) throw new InvalidOperationException(AfkText.InstallFailed);
+                Undo.RegisterCreatedObjectUndo(instance, AfkText.UndoApply);
+                Undo.SetTransformParent(instance.transform, avatar.transform, AfkText.UndoApply);
+                Undo.RecordObject(instance.transform, AfkText.UndoApply);
                 instance.transform.localPosition = Vector3.zero; instance.transform.localRotation = Quaternion.identity; instance.transform.localScale = Vector3.one;
                 foreach (var installation in installations) Undo.DestroyObjectImmediate(installation.root);
                 PrefabUtility.RecordPrefabInstancePropertyModifications(instance.transform);
@@ -307,13 +861,13 @@ namespace VRSuya.Installer.AFKTools
         {
             var s = request.Copy();
             var a = new Analysis { settings = s };
-            if (s.prefabs.Count == 0) a.Error("모션을 가져올 프리팹을 하나 이상 추가하세요.");
-            if (s.prefabs.Distinct().Count() != s.prefabs.Count) a.Error("동일한 프리팹이 중복되었습니다.");
+            if (s.prefabs.Count == 0) a.Error(AfkText.NeedMotionSource);
+            if (s.prefabs.Distinct().Count() != s.prefabs.Count) a.Error(AfkText.DuplicatePrefab);
             foreach (var prefab in s.prefabs.Where(p => p).Distinct())
             {
                 var m = Read(prefab, a, s.sceneAvatar != null); if (m != null) a.modules.Add(m);
             }
-            if (s.prefabs.Any(p => !p)) a.Error("비어 있는 입력 프리팹 슬롯이 있습니다.");
+            if (s.prefabs.Any(p => !p)) a.Error(AfkText.EmptySlot);
             if (s.defaultSourcePrefab)
                 a.defaultSource = a.modules.FirstOrDefault(m => m.prefab == s.defaultSourcePrefab) ?? Read(s.defaultSourcePrefab, a, s.sceneAvatar != null);
             else a.defaultSource = a.modules.FirstOrDefault(m => m.fx.Count == 2 && !m.actionShape.singleMotion);
@@ -325,20 +879,20 @@ namespace VRSuya.Installer.AFKTools
             bool descriptorDefault = s.sceneAvatar != null && a.defaultSource != null;
             bool sdkProductDefault = sdkDefault && a.defaultSource != null && a.defaultSource.actionShape.branches.ContainsKey(0);
             if (!descriptorDefault && !characterDefault && !sdkProductDefault)
-                a.Error("0번 기본 AFK를 읽을 캐릭터 또는 캐릭터용 기본 프리팹을 지정하세요.");
+                a.Error(AfkText.NeedDefaultSource);
             if (sdkProductDefault && !characterDefault && !descriptorDefault)
             {
                 var defaults = GraphUtility.States(a.defaultSource.actionShape.branches[0].machine)
                     .Select(st => st.motion is AnimationClip clip ? GraphUtility.EffectiveClip(a.defaultSource.action.animator, clip) : st.motion).Where(m => m).ToArray();
                 if (defaults.Length != 1 || AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(defaults[0])) != "806c242c97b686d4bac4ad50defd1fdb")
-                    a.Error(a.defaultSource.prefab.name + ": 0번 모션이 SDK 기본 AFK와 일치하지 않습니다.");
+                    a.Error(a.defaultSource.prefab.name + AfkText.DefaultMismatch);
             }
             var all = a.modules.Concat(new[] { a.defaultSource }).Where(m => m != null).Distinct().ToArray();
             const string afkPrefabPrefix = "VRSuya_AFK_Modular_";
             var productProfiles = all.Select(m => m.profile ?? (m.fx.Count == 2 && !m.actionShape.singleMotion && m.prefab.name.StartsWith(afkPrefabPrefix, StringComparison.Ordinal)
                 ? m.prefab.name.Substring(afkPrefabPrefix.Length) : null));
             if (productProfiles.Where(name => !string.IsNullOrEmpty(name)).Distinct().Count() > 1)
-                a.Error("서로 다른 캐릭터용 프리팹이 섞여 있습니다.");
+                a.Error(AfkText.MixedAvatars);
             foreach (var module in a.Sources)
             {
                 var visited = new HashSet<VRCExpressionsMenu>();
@@ -347,27 +901,27 @@ namespace VRSuya.Installer.AFKTools
             }
             a.MapMotions(s, usePrefabOrder);
             var active = a.selectedMotions.Select(m => m.choice).ToArray();
-            if (active.Length == 0) a.Error("출력할 모션을 하나 이상 선택하세요.");
+            if (active.Length == 0) a.Error(AfkText.SelectMotion);
             if (active.Any(c => c.id < 1 || c.id > 255) || active.Select(c => c.id).Distinct().Count() != active.Length)
-                a.Error("TypeAFK 번호는 중복 없는 1~255여야 합니다. 0은 캐릭터 기본 AFK입니다.");
-            if (active.Any(c => string.IsNullOrWhiteSpace(c.label))) a.Error("메뉴 이름을 입력하세요.");
-            if (s.initialType != 0 && !active.Any(c => c.id == s.initialType)) a.Error("초기 선택 번호가 활성 모션에 없습니다.");
+                a.Error(AfkText.InvalidIds);
+            if (active.Any(c => string.IsNullOrWhiteSpace(c.label))) a.Error(AfkText.NeedMenuLabel);
+            if (s.initialType != 0 && !active.Any(c => c.id == s.initialType)) a.Error(AfkText.InvalidInitialType);
             string folder = s.outputFolder ?? "";
             if (!folder.StartsWith("Assets/", StringComparison.Ordinal) || folder.Contains("..") || folder.Contains('\\') || folder.Split('/').Any(p => string.IsNullOrWhiteSpace(p) || p.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0))
-                a.Error("출력 폴더는 Assets/ 아래의 올바른 경로여야 합니다.");
-            if (string.IsNullOrWhiteSpace(s.prefabName) || s.prefabName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0 || s.prefabName.Contains('/')) a.Error("올바른 출력 프리팹 이름을 입력하세요.");
-            if (string.IsNullOrWhiteSpace(s.menuName)) a.Error("통합 메뉴 이름을 입력하세요.");
+                a.Error(AfkText.InvalidFolder);
+            if (string.IsNullOrWhiteSpace(s.prefabName) || s.prefabName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0 || s.prefabName.Contains('/')) a.Error(AfkText.InvalidPrefabName);
+            if (string.IsNullOrWhiteSpace(s.menuName)) a.Error(AfkText.NeedMenuName);
             if (all.Any(m => m.prefab.GetComponentInChildren<VRSuya.Modular.RemoveFXMask>(true)))
-                a.Warn(s.preserveGlobalMaskRemoval ? "고급 설정: 원본 RemoveFXMask 기능을 유지합니다. 아바타의 모든 FX 마스크에 영향을 줍니다." : "원본의 RemoveFXMask는 출력에서 제외합니다. 캐릭터 기본 FX에 마스크가 있다면 대상 아바타에서 반드시 확인하세요.");
+                a.Warn(s.preserveGlobalMaskRemoval ? AfkText.KeepMaskRemoval : AfkText.OmitMaskRemoval);
             if (s.validationAvatar)
             {
                 var descriptor = s.validationAvatar.GetComponent<VRCAvatarDescriptor>();
-                if (!descriptor) a.Error("확인용 아바타에는 VRC Avatar Descriptor가 필요합니다.");
+                if (!descriptor) a.Error(AfkText.NeedDescriptor);
                 if (s.validationAvatar.GetComponentsInChildren<ModularAvatarMergeAnimator>(true).Any(c => c.layerType == VRCAvatarDescriptor.AnimLayerType.Action && c.mergeAnimatorMode == MergeAnimatorMode.Replace))
-                    a.Error("대상 아바타에 Action Replace 설치가 이미 있습니다. 통합 결과를 설치할 때 기존 AFK 설치를 대체해야 합니다.");
-                a.Warn("대상 아바타 검사는 구조 확인입니다. 이 창에서 아바타를 수정하거나 VRChat 재생을 검증하지 않습니다.");
+                    a.Error(AfkText.ExistingReplace);
+                a.Warn(AfkText.StructuralCheck);
             }
-            a.Warn("결과 프리팹은 기존 AFK 설치를 대체해서 사용하세요. 원본과 결과를 함께 넣으면 Action Replace가 충돌합니다.");
+            a.Warn(AfkText.ReplaceOriginal);
             if (a.CanGenerate && s.sceneAvatar != null)
             {
                 try
@@ -382,7 +936,7 @@ namespace VRSuya.Installer.AFKTools
                     // 0번 Action과 FX는 한 쌍이다. 상품 그래프의 오류는 여기서 대체하지 않는다.
                     a.defaultAction = AvatarDefault.ReadSdk(s.sceneAvatar);
                     a.fallbackReason = e.Message;
-                    a.Warn("0번에 VRChat 기본 AFK를 사용했습니다. " + e.Message);
+                    a.Warn(AfkText.DefaultWarning + e.Message);
                 }
             }
             if (a.CanGenerate)
@@ -418,16 +972,16 @@ namespace VRSuya.Installer.AFKTools
         internal static Module Read(GameObject prefab, Analysis a, bool replaceDefault)
         {
             string path = AssetDatabase.GetAssetPath(prefab);
-            if (!path.EndsWith(".prefab", StringComparison.OrdinalIgnoreCase) || !EditorUtility.IsPersistent(prefab)) { a.Error("Project 창의 프리팹 에셋을 넣으세요.", prefab); return null; }
+            if (!path.EndsWith(".prefab", StringComparison.OrdinalIgnoreCase) || !EditorUtility.IsPersistent(prefab)) { a.Error(AfkText.NeedProjectAsset, prefab); return null; }
 
             try
             {
                 foreach (var t in prefab.GetComponentsInChildren<Transform>(true))
-                    if (GameObjectUtility.GetMonoBehavioursWithMissingScriptCount(t.gameObject) > 0) throw new InvalidOperationException("누락된 스크립트가 있습니다: " + t.name);
+                    if (GameObjectUtility.GetMonoBehavioursWithMissingScriptCount(t.gameObject) > 0) throw new InvalidOperationException(AfkText.MissingScript + t.name);
                 var merges = prefab.GetComponentsInChildren<ModularAvatarMergeAnimator>(true);
                 var action = merges.Where(c => c.layerType == VRCAvatarDescriptor.AnimLayerType.Action).ToArray();
                 if (action.Length != 1 || merges.Any(c => c.layerType != VRCAvatarDescriptor.AnimLayerType.Action && c.layerType != VRCAvatarDescriptor.AnimLayerType.FX))
-                    throw new InvalidOperationException("Action 설치 1개와 FX 설치만 있는 규격을 지원합니다.");
+                    throw new InvalidOperationException(AfkText.UnsupportedInstallLayout);
                 var shape = GraphUtility.ReadShape(action[0].animator);
                 var m = new Module { prefab = prefab, path = path, guid = AssetDatabase.AssetPathToGUID(path),
                     action = action[0], actionShape = shape,
@@ -439,10 +993,10 @@ namespace VRSuya.Installer.AFKTools
                 else if (shape.branches.TryGetValue(0, out var zero) && zero.machine.name.StartsWith("AFK_Default_", StringComparison.Ordinal))
                     m.profile = zero.machine.name.Substring("AFK_Default_".Length);
                 if (m.fx.Count < 1 || m.fx.Count > 2)
-                    throw new InvalidOperationException("통합 FX 1개 또는 캐릭터용 Absolute FX와 소품용 Relative FX 한 쌍이 필요합니다.");
+                    throw new InvalidOperationException(AfkText.UnsupportedFxLayout);
                 foreach (var cfg in prefab.GetComponentsInChildren<ModularAvatarParameters>(true).SelectMany(p => p.parameters))
                     if (cfg.isPrefix || !string.IsNullOrEmpty(cfg.remapTo) || cfg.internalParameter)
-                        throw new InvalidOperationException("이름 변경 / 내부 / 접두사 MA 파라미터는 별도 어댑터가 필요합니다.");
+                        throw new InvalidOperationException(AfkText.UnsupportedMAParameter);
                 foreach (var merge in merges)
                 {
                     var graph = merge == m.action ? shape : GraphUtility.ReadShape(merge.animator);
@@ -456,24 +1010,24 @@ namespace VRSuya.Installer.AFKTools
                     {
                         var role = merge.pathMode == MergeAnimatorPathMode.Relative ? CurveGroup.Objects : CurveGroup.Face;
                         if (!m.layers.TryAdd(role, (merge, graph)))
-                            throw new InvalidOperationException("분리된 FX는 Absolute와 Relative가 하나씩 필요합니다.");
+                            throw new InvalidOperationException(AfkText.SplitFxPaths);
                     }
                     if (GraphUtility.HasSyncedCompanion(graph.controller))
                     {
                         var companion = graph.controller.layers[1];
                         foreach (var state in GraphUtility.States(graph.root))
                             if (companion.GetOverrideBehaviours(state)?.Length > 0)
-                                throw new InvalidOperationException($"{graph.controller.name}/{state.name}: 동기화 레이어의 Behaviour override를 보존할 수 없습니다.");
+                                throw new InvalidOperationException(string.Format(AfkText.SyncedBehaviour, graph.controller.name, state.name));
                     }
                     if (graph.singleMotion != shape.singleMotion)
-                        throw new InvalidOperationException("Action과 FX의 AFK 진입 조건이 다릅니다.");
+                        throw new InvalidOperationException(AfkText.EntryMismatch);
                     if (graph.branches.Count != shape.branches.Count || graph.branches.Keys.Any(id => !shape.branches.ContainsKey(id)))
-                        throw new InvalidOperationException("Action과 FX의 TypeAFK 분기가 다릅니다.");
-                    if (graph.controller.layers[0].avatarMask) throw new InvalidOperationException("입력 레이어에 AvatarMask가 있는 변형은 별도 검토가 필요합니다.");
+                        throw new InvalidOperationException(AfkText.BranchMismatch);
+                    if (graph.controller.layers[0].avatarMask) throw new InvalidOperationException(AfkText.MaskedLayer);
                     foreach (var behaviour in GraphUtility.Reachable(graph.controller, graph.ReplacedStates(replaceDefault)).OfType<StateMachineBehaviour>())
-                        if (!new[] { "VRCPlayableLayerControl", "VRCAnimatorTrackingControl", "VRCAvatarParameterDriver" }.Contains(behaviour.GetType().Name)) throw new InvalidOperationException("지원하지 않는 Animator Behaviour: " + behaviour.GetType().Name);
-                    if (merge.animator.animationClips.Any(c => AnimationUtility.GetAnimationEvents(c).Length > 0)) throw new InvalidOperationException("Animation Event가 있는 클립은 중복 실행 방지 검토가 필요합니다.");
-                    if (graph.root.stateMachines.Length != graph.branches.Count) throw new InvalidOperationException("AFK 분기 외의 하위 상태 머신이 있습니다.");
+                        if (!new[] { "VRCPlayableLayerControl", "VRCAnimatorTrackingControl", "VRCAvatarParameterDriver" }.Contains(behaviour.GetType().Name)) throw new InvalidOperationException(AfkText.UnsupportedBehaviour + behaviour.GetType().Name);
+                    if (merge.animator.animationClips.Any(c => AnimationUtility.GetAnimationEvents(c).Length > 0)) throw new InvalidOperationException(AfkText.AnimationEvents);
+                    if (graph.root.stateMachines.Length != graph.branches.Count) throw new InvalidOperationException(AfkText.ExtraStateMachine);
                 }
                 return m;
             }
@@ -507,7 +1061,8 @@ namespace VRSuya.Installer.AFKTools
         public GameObject sdkDefaultAvatar;
         [NonSerialized] internal GameObject sceneAvatar;
         public string menuName = "VRSuya AFK";
-        public string outputFolder = "Assets/VRSuya/AFKToolsGenerated";
+        internal const string DefaultOutputFolder = "Assets/VRSuya/AFKToolsGenerated";
+        public string outputFolder = DefaultOutputFolder;
         public string prefabName = "VRSuya_AFK_Combined";
         public int initialType;
         public List<MotionChoice> motions = new List<MotionChoice>();
@@ -657,7 +1212,7 @@ namespace VRSuya.Installer.AFKTools
         public static BuildSettings Load(string path)
         {
             var data = JsonUtility.FromJson<Data>(File.ReadAllText(path));
-            if (data == null || data.version != 1 || data.settings == null || data.prefabGuids == null) throw new InvalidOperationException("지원하지 않는 Recipe 형식입니다.");
+            if (data == null || data.version != 1 || data.settings == null || data.prefabGuids == null) throw new InvalidOperationException(AfkText.InvalidRecipe);
             data.settings.prefabs = data.prefabGuids.Select(g => Load<GameObject>(g)).ToList();
             data.settings.defaultSourcePrefab = Load<GameObject>(data.defaultGuid);
             for (int i = 0; i < data.settings.motions.Count; i++) data.settings.motions[i].icon = data.iconGuids != null && i < data.iconGuids.Length ? Load<Texture2D>(data.iconGuids[i]) : null;
@@ -675,7 +1230,7 @@ namespace VRSuya.Installer.AFKTools
     {
         public static GenerationResult Generate(BuildSettings settings, Analysis reviewed)
         {
-            if (reviewed == null || reviewed.fingerprint != Analyzer.Fingerprint(settings)) throw new InvalidOperationException("설정 또는 원본 에셋이 변경되었습니다. 다시 분석하세요.");
+            if (reviewed == null || reviewed.fingerprint != Analyzer.Fingerprint(settings)) throw new InvalidOperationException(AfkText.SourceChanged);
             return GenerateMapped(Analyzer.Inspect(settings, false));
         }
 
@@ -703,7 +1258,7 @@ namespace VRSuya.Installer.AFKTools
                     if (!usedNames.Add(copy.name))
                     {
                         copy.name += "_" + m.guid;
-                        if (!usedNames.Add(copy.name)) throw new InvalidOperationException("상품 오브젝트 경로가 겹칩니다: " + copy.name);
+                        if (!usedNames.Add(copy.name)) throw new InvalidOperationException(AfkText.DuplicateObjectPath + copy.name);
                     }
                     roots[m] = root.name + "/Modules/" + copy.name;
                     RebaseReferences(copy, m.prefab.name, roots[m]);
@@ -744,7 +1299,7 @@ namespace VRSuya.Installer.AFKTools
                 {
                     if (config.nameOrPrefix == "TypeAFK" || config.nameOrPrefix == "AFK") continue;
                     var previous = parametersComponent.parameters.Where(p => p.nameOrPrefix == config.nameOrPrefix).ToArray();
-                    if (previous.Length > 0 && JsonUtility.ToJson(previous[0]) != JsonUtility.ToJson(config)) throw new InvalidOperationException("MA 파라미터 설정 충돌: " + config.nameOrPrefix);
+                    if (previous.Length > 0 && JsonUtility.ToJson(previous[0]) != JsonUtility.ToJson(config)) throw new InvalidOperationException(AfkText.ParameterConflict + config.nameOrPrefix);
                     if (previous.Length == 0) parametersComponent.parameters.Add(config);
                 }
                 parametersComponent.parameters.Add(new ParameterConfig { nameOrPrefix = "TypeAFK", syncType = ParameterSyncType.Int, defaultValue = settings.initialType, hasExplicitDefaultValue = true, saved = true });
@@ -754,7 +1309,7 @@ namespace VRSuya.Installer.AFKTools
                     AssetDatabase.SaveAssetIfDirty(new GUID(guid));
                 string prefabPath = folder + "/" + settings.prefabName + ".prefab";
                 var prefab = PrefabUtility.SaveAsPrefabAsset(root, prefabPath, out bool success);
-                if (!success || !prefab) throw new InvalidOperationException("프리팹 저장에 실패했습니다.");
+                if (!success || !prefab) throw new InvalidOperationException(AfkText.SaveFailed);
                 ValidateSaved(prefab, action, fx, folder);
                 Recipe.Save(settings, folder + "/Recipe.json");
                 string reportPath = folder + "/Report.md";
@@ -808,7 +1363,7 @@ namespace VRSuya.Installer.AFKTools
         }
         private static VRCExpressionsMenu CreateMenu(BuildSettings s, Analysis a, string folder)
         {
-            var choices = new[] { new MotionChoice { id = 0, label = "기본 AFK", icon = a.defaultIcon } }
+            var choices = new[] { new MotionChoice { id = 0, label = AfkText.DefaultLabel, icon = a.defaultIcon } }
                 .Concat(a.selectedMotions.Select(m => m.choice)).ToArray();
             var top = ScriptableObject.CreateInstance<VRCExpressionsMenu>(); top.name = s.menuName;
             AssetDatabase.CreateAsset(top, folder + "/Menu.asset");
@@ -817,7 +1372,7 @@ namespace VRSuya.Installer.AFKTools
             {
                 var menu = ScriptableObject.CreateInstance<VRCExpressionsMenu>(); menu.name = s.menuName + " " + (page + 1);
                 AssetDatabase.CreateAsset(menu, folder + "/Menu_Page" + (page + 1) + ".asset");
-                (previous ?? top).controls.Add(new VRCExpressionsMenu.Control { name = previous ? "다음" : s.menuName, icon = previous ? null : a.entryIcon, type = VRCExpressionsMenu.Control.ControlType.SubMenu, subMenu = menu });
+                (previous ?? top).controls.Add(new VRCExpressionsMenu.Control { name = previous ? AfkText.NextPage : s.menuName, icon = previous ? null : a.entryIcon, type = VRCExpressionsMenu.Control.ControlType.SubMenu, subMenu = menu });
                 int take = choices.Length - offset > 8 ? 7 : choices.Length - offset;
                 foreach (var c in choices.Skip(offset).Take(take))
                 {
@@ -832,24 +1387,24 @@ namespace VRSuya.Installer.AFKTools
         public static void ValidateSaved(GameObject prefab, AnimatorController action, AnimatorController fx, string folder)
         {
             var merges = prefab.GetComponentsInChildren<ModularAvatarMergeAnimator>(true);
-            if (merges.Length != 2 || merges.Count(m => m.mergeAnimatorMode == MergeAnimatorMode.Replace) != 1) throw new InvalidOperationException("중앙 MA 설치 개수가 잘못되었습니다.");
+            if (merges.Length != 2 || merges.Count(m => m.mergeAnimatorMode == MergeAnimatorMode.Replace) != 1) throw new InvalidOperationException(AfkText.InvalidMergeCount);
             foreach (var controller in new[] { action, fx })
             foreach (var obj in GraphUtility.Reachable(controller))
             {
                 if ((obj is AnimatorStateMachine || obj is AnimatorState || obj is AnimatorTransitionBase || obj is StateMachineBehaviour || obj is BlendTree || obj is AnimationClip) && !AssetDatabase.GetAssetPath(obj).StartsWith(folder + "/", StringComparison.Ordinal))
-                    throw new InvalidOperationException("출력 그래프에 원본 또는 저장되지 않은 참조가 남았습니다: " + obj.name + " / " + AssetDatabase.GetAssetPath(obj));
+                    throw new InvalidOperationException(AfkText.ExternalGraphReference + obj.name + " / " + AssetDatabase.GetAssetPath(obj));
             }
         }
         private static string Report(BuildSettings s, Analysis a, string folder)
         {
-            var b = new StringBuilder("# VRSuya AFK Tools 생성 보고서\n\n");
-            b.AppendLine("생성 시간: " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
-            b.AppendLine("\n출력: `" + folder + "`\n\n원본 상품 에셋은 수정하지 않습니다. 생성물은 원본 모델·마테리얼·텍스처 및 기존 VRSuya Installer/MA에 의존합니다. 툴 전용 런타임 컴포넌트는 없습니다. 적용 버튼은 생성 후 선택한 씬 캐릭터에 결과를 설치합니다.");
-            b.AppendLine("\n## 모션\n\n| TypeAFK | 메뉴 |\n|---|---|\n| 0 | 기본 AFK (" + (a.defaultAction?.Source ?? a.defaultSource.prefab.name) + ") |");
+            var b = new StringBuilder(AfkText.ReportTitle);
+            b.AppendLine(AfkText.ReportTime + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+            b.AppendLine(string.Format(AfkText.ReportOutput, folder));
+            b.AppendLine(string.Format(AfkText.ReportMotions, a.defaultAction?.Source ?? a.defaultSource.prefab.name));
             foreach (var c in a.selectedMotions.Select(m => m.choice)) b.AppendLine("| " + c.id + " | " + c.label.Replace("|", "\\|") + " |");
-            b.AppendLine("\n## 적용\n\n적용 버튼은 통합 프리팹을 캐릭터 아래에 넣고 확인된 기존 AFK 설치를 교체합니다. Ctrl+Z로 씬 변경을 되돌릴 수 있습니다. 생성 에셋은 남습니다.\n\n결과 루트 이름 및 Modules 계층을 유지하세요. NDMF 테스트 빌드와 VRChat에서 기본/각 모션/중도 해제/모션 전환/원격 동기화를 확인하세요.");
-            b.AppendLine("\n## 검증 범위\n\n저장된 그래프 참조와 설치 개수 검사는 통과했습니다. 이 생성은 실제 아바타 재생 또는 업로드 검증을 대신하지 않습니다. More-AFK는 Phone 구조를 지원합니다.");
-            foreach (var issue in a.issues) b.AppendLine("\n- " + issue.level + ": " + issue.message);
+            b.AppendLine(AfkText.ReportInstallation);
+            b.AppendLine(AfkText.ReportValidation);
+            foreach (var issue in a.issues) b.AppendLine("\n- " + AfkText.Severity(issue.level) + ": " + issue.message);
             return b.ToString();
         }
     }
@@ -895,7 +1450,7 @@ namespace VRSuya.Installer.AFKTools
                     if (previous.Any(d => d.parameters.Any(p => names.Contains(p.name))))
                     {
                         if (!previous.Any(d => SameDriver(d, driver)))
-                            analysis.Error($"{module.prefab.name} / {state.name}: 공통 Parameter Driver 설정 충돌 ({string.Join(", ", names)}).");
+                            analysis.Error(string.Format(AfkText.DriverConflict, module.prefab.name, state.name, string.Join(", ", names)));
                         continue;
                     }
                     drivers[state.name].Add(driver);
@@ -978,7 +1533,7 @@ namespace VRSuya.Installer.AFKTools
             foreach (var parameter in source.parameters)
             {
                 var current = output.parameters.FirstOrDefault(p => p.name == parameter.name);
-                if (current != null && current.type != parameter.type) throw new InvalidOperationException("파라미터 타입 충돌: " + parameter.name);
+                if (current != null && current.type != parameter.type) throw new InvalidOperationException(AfkText.ParameterTypeConflict + parameter.name);
                 if (current == null) output.AddParameter(parameter);
             }
         }
@@ -1046,7 +1601,7 @@ namespace VRSuya.Installer.AFKTools
             {
                 if (t.conditions.Length == 0) continue;
                 if (t.conditions.Length != 1 || t.conditions[0].parameter != "AFK" || !t.destinationState)
-                    throw new InvalidOperationException("단일 AFK 분기의 전환 조건을 변환할 수 없습니다: " + state.name);
+                    throw new InvalidOperationException(AfkText.SingleBranchTransition + state.name);
                 if (t.conditions[0].mode == AnimatorConditionMode.If)
                     t.AddCondition(AnimatorConditionMode.Equals, 1, "TypeAFK");
                 else if (t.conditions[0].mode == AnimatorConditionMode.IfNot)
@@ -1059,7 +1614,7 @@ namespace VRSuya.Installer.AFKTools
                     change.AddCondition(AnimatorConditionMode.If, 0, "AFK");
                     change.AddCondition(AnimatorConditionMode.NotEqual, 1, "TypeAFK");
                 }
-                else throw new InvalidOperationException("단일 AFK 분기에는 AFK 켜기·끄기 조건이 필요합니다: " + state.name);
+                else throw new InvalidOperationException(AfkText.SingleBranchConditions + state.name);
             }
             if (!output.parameters.Any(p => p.name == "TypeAFK")) output.AddParameter("TypeAFK", AnimatorControllerParameterType.Int);
         }
@@ -1132,14 +1687,14 @@ namespace VRSuya.Installer.AFKTools
                         if (old is AnimatorState state)
                         {
                             if (rootStates.TryGetValue(state.name, out var replacement)) return replacement;
-                            throw new InvalidOperationException("분기 밖 상태로 향하는 전이: " + state.name);
+                            throw new InvalidOperationException(AfkText.OutsideBranch + state.name);
                         }
                         if (old is AnimatorStateMachine machine && machine == item.graph.root) return root;
                         return old;
                     });
                 }
                 foreach (var driver in GraphUtility.States(item.branch.machine).SelectMany(s => s.behaviours).OfType<VRCAvatarParameterDriver>())
-                    if (driver.parameters.Any(p => p.name == "TypeAFK")) throw new InvalidOperationException("분기 내부 TypeAFK 드라이버는 별도 변환 검토가 필요합니다.");
+                    if (driver.parameters.Any(p => p.name == "TypeAFK")) throw new InvalidOperationException(AfkText.InternalTypeDriver);
                 item.branch.machine.name = "AFK_" + item.id + "_" + item.branch.machine.name.Replace("AFK_", "");
                 root.AddStateMachine(item.branch.machine, branchPosition);
                 branchPosition.y += branchRowHeight;
@@ -1271,7 +1826,7 @@ namespace VRSuya.Installer.AFKTools
                             obj.hideFlags = HideFlags.HideInHierarchy;
                             AssetDatabase.AddObjectToAsset(obj, graph.controller);
                         }
-                        else throw new InvalidOperationException("출력에 저장할 수 없는 참조가 있습니다: " + obj.name);
+                        else throw new InvalidOperationException(AfkText.UnsavedReference + obj.name);
                     }
                     EditorUtility.SetDirty(graph.controller);
                 }
@@ -1314,7 +1869,7 @@ namespace VRSuya.Installer.AFKTools
                 {
                     var motion = layer.GetOverrideMotion(state);
                     if (!motion || motion == state.motion) continue;
-                    if (!(motion is AnimationClip clip)) throw new InvalidOperationException("동기화된 모션이 클립이 아닙니다: " + state.name);
+                    if (!(motion is AnimationClip clip)) throw new InvalidOperationException(AfkText.SyncedMotionNotClip + state.name);
                     companions.Add(state, (clip, companions.Count));
                 }
             }
@@ -1323,7 +1878,7 @@ namespace VRSuya.Installer.AFKTools
         internal Motion CommonMotion(AnimatorState state)
         {
             if (state.motion && !(state.motion is AnimationClip))
-                throw new InvalidOperationException("공통 FX 상태의 BlendTree를 합칠 수 없습니다: " + state.name);
+                throw new InvalidOperationException(AfkText.CommonFxBlendTree + state.name);
             return CompanionMotion(state, Compile(state.motion as AnimationClip));
         }
 
@@ -1352,13 +1907,13 @@ namespace VRSuya.Installer.AFKTools
             {
                 var next = Map(source, b, out bool owned);
                 if (!Include(owned)) continue;
-                if (!bindings.Add(next.path + "|" + next.type + "|" + next.propertyName)) throw new InvalidOperationException("클립 경로 변환 후 커브가 겹칩니다: " + source.name);
+                if (!bindings.Add(next.path + "|" + next.type + "|" + next.propertyName)) throw new InvalidOperationException(AfkText.CurveCollision + source.name);
                 AnimationUtility.SetEditorCurve(output, next, AnimationUtility.GetEditorCurve(source, b));
             }
             foreach (var b in AnimationUtility.GetObjectReferenceCurveBindings(source))
             {
                 var next = Map(source, b, out bool owned); if (!Include(owned)) continue;
-                if (!bindings.Add(next.path + "|" + next.type + "|" + next.propertyName)) throw new InvalidOperationException("클립 경로 변환 후 커브가 겹칩니다: " + source.name);
+                if (!bindings.Add(next.path + "|" + next.type + "|" + next.propertyName)) throw new InvalidOperationException(AfkText.CurveCollision + source.name);
                 AnimationUtility.SetObjectReferenceCurve(output, next, AnimationUtility.GetObjectReferenceCurve(source, b));
             }
             // SDK motion names are significant to VRSuya ChangeStandingPose.
@@ -1387,13 +1942,13 @@ namespace VRSuya.Installer.AFKTools
                 string owner = relativeOwner;
                 // Explicit relative roots outside this prefab cannot be resolved safely here.
                 if (!string.IsNullOrEmpty(merge.relativePathRoot.referencePath))
-                    throw new InvalidOperationException("명시적 Relative Path Root는 현재 지원하지 않습니다: " + module.prefab.name);
+                    throw new InvalidOperationException(AfkText.ExplicitRelativeRoot + module.prefab.name);
                 relative = string.IsNullOrEmpty(owner) ? binding.path : owner + (string.IsNullOrEmpty(binding.path) ? "" : "/" + binding.path);
                 if (relative.Length > 0 && !module.prefab.transform.Find(relative))
                 {
                     // Sio의 서기 클립처럼 상품 소품과 별도로 캐릭터 자체의 오브젝트를 제어할 수 있다.
                     if (avatar && AnimationUtility.GetAnimatedObject(avatar, binding)) return binding;
-                    throw new InvalidOperationException($"{module.prefab.name} / {clip.name}: '{binding.path}' ({binding.propertyName})의 대상을 확인할 수 없습니다. 상품 경로: {relative}, 캐릭터: {(avatar ? avatar.name : "미지정")}");
+                    throw new InvalidOperationException(string.Format(AfkText.MissingBinding, module.prefab.name, clip.name, binding.path, binding.propertyName, relative, avatar ? avatar.name : AfkText.Unspecified));
                 }
             }
             else
@@ -1408,7 +1963,7 @@ namespace VRSuya.Installer.AFKTools
         public static AnimationClip Union(IEnumerable<Motion> motions, string name, string folder, GraphAssets assets)
         {
             var inputs = motions.Where(m => m).Distinct().ToArray();
-            if (inputs.Any(m => !(m is AnimationClip))) throw new InvalidOperationException("공통 상태의 BlendTree 병합은 지원하지 않습니다: " + name);
+            if (inputs.Any(m => !(m is AnimationClip))) throw new InvalidOperationException(AfkText.CommonBlendTree + name);
             if (inputs.Length == 0) return null;
             var result = UnityEngine.Object.Instantiate((AnimationClip)inputs[0]); result.name = name;
             // Canonical default source has precedence for shared avatar bindings; other modules add their prop resets.
@@ -1434,7 +1989,7 @@ namespace VRSuya.Installer.AFKTools
                     if (objectKeys.Add(b)) AnimationUtility.SetObjectReferenceCurve(result, b, next);
                     else if (!AnimationUtility.GetObjectReferenceCurve(result, b).SequenceEqual(next)) conflicts.Add(b.path + "/" + b.propertyName);
                 }
-                if (conflicts.Count > 0) assets.Warn($"{name}: {clip.name}의 중복 커브 {conflicts.Count}개에 앞서 합친 값을 유지합니다. 예: {conflicts[0]}");
+                if (conflicts.Count > 0) assets.Warn(string.Format(AfkText.OverlappingCurves, name, clip.name, conflicts.Count, conflicts[0]));
             }
             result.name = name.Replace(' ', '_');
             assets.QueueClip(result, folder + "/" + result.name + ".anim");
@@ -1464,7 +2019,7 @@ namespace VRSuya.Installer.AFKTools
 
         private static UnsupportedGraph Unsupported(string reason)
         {
-            return new UnsupportedGraph("캐릭터 기본 AFK: " + reason);
+            return new UnsupportedGraph(AfkText.AvatarDefaultReason + reason);
         }
 
         public static AvatarDefault Read(GameObject avatar)
@@ -1474,13 +2029,13 @@ namespace VRSuya.Installer.AFKTools
             if (descriptor.customizeAnimationLayers)
             {
                 var actions = descriptor.baseAnimationLayers?.Where(l => l.type == VRCAvatarDescriptor.AnimLayerType.Action).ToArray();
-                if (actions != null && actions.Length > 1) throw new InvalidOperationException("캐릭터 Descriptor에 Action 슬롯이 여러 개입니다.");
+                if (actions != null && actions.Length > 1) throw new InvalidOperationException(AfkText.MultipleActionSlots);
                 if (actions?.Length == 1 && !actions[0].isDefault) runtime = actions[0].animatorController;
             }
             if (!runtime) return ReadSdk(avatar);
             var controller = GraphUtility.BaseController(runtime);
             if (!controller || controller.layers.Length != 1 || controller.layers[0].avatarMask)
-                throw Unsupported("단일 Action 레이어의 AFK 경로를 식별할 수 없습니다.");
+                throw Unsupported(AfkText.UnknownActionPath);
             return new AvatarDefault(runtime, avatar, controller.layers[0].stateMachine);
         }
 
@@ -1489,9 +2044,9 @@ namespace VRSuya.Installer.AFKTools
             var path = AssetDatabase.GUIDToAssetPath("3e479eeb9db24704a828bffb15406520");
             var sdk = AssetDatabase.LoadAssetAtPath<AnimatorController>(path);
             if (!sdk || sdk.layers.Length != 1)
-                throw new InvalidOperationException("VRChat SDK 기본 Action 컨트롤러를 확인해주세요.");
+                throw new InvalidOperationException(AfkText.MissingSdkAction);
             try { return new AvatarDefault(sdk, avatar, sdk.layers[0].stateMachine); }
-            catch (UnsupportedGraph e) { throw new InvalidOperationException("VRChat SDK 기본 AFK를 읽지 못했습니다.", e); }
+            catch (UnsupportedGraph e) { throw new InvalidOperationException(AfkText.InvalidSdkAfk, e); }
         }
 
         // Installer removes named native FX layers at build time. Capture their AFK motion
@@ -1547,15 +2102,15 @@ namespace VRSuya.Installer.AFKTools
             if (candidates.Length == 0) return null;
             if (candidates.Length != 1 || candidates[0].avatarMask || candidates[0].syncedLayerIndex >= 0 ||
                 candidates[0].blendingMode != AnimatorLayerBlendingMode.Override || candidates[0].defaultWeight != 1f)
-                throw new UnsupportedGraph("캐릭터의 기본 AFK FX 레이어 구성을 그대로 통합할 수 없습니다: " + controller.name);
+                throw new UnsupportedGraph(AfkText.UnsupportedDefaultFx + controller.name);
             try
             {
                 var native = new AvatarDefault(fx, Avatar, candidates[0].stateMachine);
                 if (native.exit.motion && !(native.exit.motion is AnimationClip))
-                    throw Unsupported("FX 종료 모션을 복제할 수 없습니다: " + native.exit.name);
+                    throw Unsupported(AfkText.FxExitClone + native.exit.name);
                 return native;
             }
-            catch (UnsupportedGraph e) { throw new UnsupportedGraph("캐릭터 FX " + controller.name + " / " + candidates[0].name + " — " + e.Message); }
+            catch (UnsupportedGraph e) { throw new UnsupportedGraph(AfkText.AvatarFx + controller.name + " / " + candidates[0].name + " — " + e.Message); }
         }
 
         private AvatarDefault(RuntimeAnimatorController runtime, GameObject avatar, AnimatorStateMachine root)
@@ -1576,13 +2131,13 @@ namespace VRSuya.Installer.AFKTools
                 var zero = transitions.Where(t => t.conditions.Any(IsZeroEntry)).ToArray();
                 if (zero.Length != 1 || transitions.Any(t => t.solo || t.isExit || !t.conditions.Any(c => c.parameter == "TypeAFK" && c.mode == AnimatorConditionMode.Equals)) ||
                     zero[0].conditions.Any(c => !IsZeroEntry(c) && !(c.parameter == "AFK" && c.mode == AnimatorConditionMode.If)))
-                    throw Unsupported("TypeAFK 0번 진입 조건을 구분할 수 없습니다.");
+                    throw Unsupported(AfkText.DefaultEntry);
                 selector = gates[0];
                 start = zero[0].destinationState ? zero[0].destinationState : zero[0].destinationStateMachine?.defaultState;
                 zeroMachine = root.stateMachines.Select(c => c.stateMachine).SingleOrDefault(sm => GraphUtility.States(sm).Contains(start));
                 if (!zeroMachine || zeroMachine.stateMachines.Length != 0 || zeroMachine.entryTransitions.Length != 0 ||
                     zeroMachine.anyStateTransitions.Length != 0 || root.GetStateMachineTransitions(zeroMachine).Length != 0)
-                    throw Unsupported("TypeAFK 0번 하위 상태 머신의 경계를 확인할 수 없습니다.");
+                    throw Unsupported(AfkText.DefaultBoundary);
             }
             else if (gates.Length == 1 && gates[0].transitions.Length == 1 && gates[0].transitions[0].conditions.All(c => c.parameter == "AFK" && c.mode == AnimatorConditionMode.If))
                 start = gates[0].transitions[0].destinationState;
@@ -1595,11 +2150,11 @@ namespace VRSuya.Installer.AFKTools
             if (!start || !exit)
             {
                 var routes = NestedRoutes(root, all).ToArray();
-                if (routes.Length != 1) throw Unsupported("AFK 진입·종료 경로를 하나로 식별할 수 없습니다.");
+                if (routes.Length != 1) throw Unsupported(AfkText.UnknownEntryExit);
                 start = routes[0].Item1;
                 exit = routes[0].Item2;
             }
-            if (!exit || exit == start) throw Unsupported("AFK 종료 경로를 확인할 수 없습니다.");
+            if (!exit || exit == start) throw Unsupported(AfkText.UnknownExit);
 
             var visitedStates = new HashSet<AnimatorState>();
             var queue = new Queue<AnimatorState>();
@@ -1614,31 +2169,31 @@ namespace VRSuya.Installer.AFKTools
                 {
                     var owner = GraphUtility.Machines(root).First(sm => sm.states.Any(child => child.state == state));
                     var targets = layerControls.Select(c => c.playable + "[" + c.layer + "]").Distinct();
-                    throw Unsupported(owner.name + "/" + state.name + "에서 " + string.Join(", ", targets) +
-                        "의 가중치를 변경합니다. 이 레이어 제어와 종료 시 복원은 아직 통합할 수 없습니다.");
+                    throw Unsupported(string.Format(AfkText.LayerWeights, owner.name, state.name, string.Join(", ", targets)));
+
                 }
                 if (!(state.motion is AnimationClip) || state.behaviours.Length > 0 || state.timeParameterActive ||
                     state.speedParameterActive || state.mirrorParameterActive || state.cycleOffsetParameterActive)
-                    throw Unsupported(state.name + "의 동작 또는 제어 방식은 아직 지원하지 않습니다.");
+                    throw Unsupported(string.Format(AfkText.StateControl, state.name));
                 states.Add(state);
                 foreach (var t in state.transitions)
                 {
                     if (!t.destinationState || t.isExit || t.mute || t.solo || t.conditions.Any(c =>
                         !(c.parameter == "AFK" && (c.mode == AnimatorConditionMode.If || c.mode == AnimatorConditionMode.IfNot)) &&
                         !(selector && (IsZeroEntry(c) || IsZeroChange(c)))))
-                        throw Unsupported(state.name + "의 전환 조건을 보존할 수 없습니다.");
+                        throw Unsupported(string.Format(AfkText.StateConditions, state.name));
                     if (selector && t.destinationState == selector && t.conditions.Any(IsZeroChange)) continue;
                     if (t.destinationState == exit) exits = true;
                     else if (zeroMachine && !zeroMachine.states.Any(child => child.state == t.destinationState))
-                        throw Unsupported(state.name + "에서 0번 분기 밖으로 나가는 전이를 확인할 수 없습니다.");
+                        throw Unsupported(string.Format(AfkText.LeavesDefault, state.name));
                     else queue.Enqueue(t.destinationState);
                 }
             }
             if (!exits || !states.SelectMany(st => st.transitions).Any(t => t.conditions.Any(IsOff)))
-                throw Unsupported("AFK 해제 조건을 확인할 수 없습니다.");
+                throw Unsupported(AfkText.MissingOffCondition);
             foreach (var machine in GraphUtility.Machines(root).Where(sm => sm.states.Any(st => visitedStates.Contains(st.state))))
                 if (machine.behaviours.Length > 0 || machine.anyStateTransitions.Any(t => !entries.Contains(t.destinationState)))
-                    throw Unsupported("AFK 외 전환이 같은 상태 머신에 있습니다.");
+                    throw Unsupported(AfkText.OtherTransitions);
         }
 
         // A self-contained motion group can use arbitrary state and machine names.
@@ -1696,7 +2251,7 @@ namespace VRSuya.Installer.AFKTools
                 if (nativeFx && exit.motion)
                 {
                     if (!(exit.motion is AnimationClip resetClip))
-                        throw new InvalidOperationException("기본 AFK FX 종료 모션을 복제할 수 없습니다: " + exit.name);
+                        throw new InvalidOperationException(AfkText.DefaultFxExitClone + exit.name);
                     var reset = GraphUtility.EffectiveClip(runtime, resetClip);
                     foreach (var state in new[] { shape.prepare, blendOut })
                         state.motion = ClipCompiler.Union(new Motion[] { reset, state.motion }, "AvatarDefaultFX_" + state.name, folder, assets);
@@ -1759,7 +2314,7 @@ namespace VRSuya.Installer.AFKTools
             var seen = new HashSet<RuntimeAnimatorController>();
             while (controller is AnimatorOverrideController overrides)
             {
-                if (!seen.Add(controller)) throw new InvalidOperationException("순환 Animator Override 참조입니다.");
+                if (!seen.Add(controller)) throw new InvalidOperationException(AfkText.OverrideCycle);
                 controller = overrides.runtimeAnimatorController;
             }
             return controller as AnimatorController;
@@ -1793,12 +2348,12 @@ namespace VRSuya.Installer.AFKTools
         {
             var controller = BaseController(runtime);
             if (!controller || (controller.layers.Length != 1 && !HasSyncedCompanion(controller)))
-                throw new InvalidOperationException("현재 지원 규격은 입력 컨트롤러 내부 레이어 1개입니다. 알 수 없는 레이어는 임의로 누락하지 않습니다.");
+                throw new InvalidOperationException(AfkText.InputLayerCount);
             var root = controller.layers[0].stateMachine;
             if (!controller.parameters.Any(p => p.name == "AFK" && p.type == AnimatorControllerParameterType.Bool))
-                throw new InvalidOperationException(controller.name + ": AFK Bool 파라미터가 필요합니다.");
+                throw new InvalidOperationException(controller.name + AfkText.NeedAfkBool);
             var prepare = root.states.Select(s => s.state).SingleOrDefault(s => s.name == "Prepare AFK");
-            if (!prepare) throw new InvalidOperationException("Prepare AFK 상태가 없는 미지원 컨트롤러입니다: " + controller.name);
+            if (!prepare) throw new InvalidOperationException(AfkText.MissingPrepare + controller.name);
             var result = new ControllerShape { controller = controller, root = root, prepare = prepare };
             // Original Phone products have one AFK branch and no selector parameter.
             var single = root.stateMachines.Length == 1 ? root.stateMachines[0].stateMachine : null;
@@ -1807,35 +2362,35 @@ namespace VRSuya.Installer.AFKTools
                 var entry = prepare.transitions[0];
                 if (entry.conditions.Length != 1 || entry.conditions[0].parameter != "AFK" || entry.conditions[0].mode != AnimatorConditionMode.If ||
                     !(entry.destinationStateMachine == single || States(single).Contains(entry.destinationState)))
-                    throw new InvalidOperationException(controller.name + ": 단일 AFK 분기의 진입 경로를 확인할 수 없습니다.");
+                    throw new InvalidOperationException(controller.name + AfkText.SingleEntry);
                 result.singleMotion = true;
                 result.branches[1] = new Branch { localId = 1, machine = single, entry = entry };
                 return result;
             }
             var owners = new Dictionary<AnimatorState, AnimatorStateMachine>();
             if (controller.layers.Length != 1)
-                throw new InvalidOperationException(controller.name + ": 동기화된 보조 레이어는 단일 AFK 분기에서만 지원합니다.");
+                throw new InvalidOperationException(controller.name + AfkText.SyncedSingleOnly);
             if (!controller.parameters.Any(p => p.name == "TypeAFK" && p.type == AnimatorControllerParameterType.Int))
-                throw new InvalidOperationException(controller.name + ": 선택형 AFK에는 TypeAFK Int 파라미터가 필요합니다.");
+                throw new InvalidOperationException(controller.name + AfkText.NeedTypeInt);
             var children = root.stateMachines.Select(child => child.stateMachine).ToHashSet();
             var destinations = new HashSet<AnimatorStateMachine>();
             foreach (var child in children)
             foreach (var state in States(child))
-                if (!owners.TryAdd(state, child)) throw new InvalidOperationException("둘 이상의 분기가 같은 상태를 공유합니다.");
+                if (!owners.TryAdd(state, child)) throw new InvalidOperationException(AfkText.SharedState);
             foreach (var transition in prepare.transitions)
             {
                 var condition = transition.conditions.Where(c => c.parameter == "TypeAFK" && c.mode == AnimatorConditionMode.Equals).ToArray();
-                if (condition.Length != 1) throw new InvalidOperationException("AFK 진입 분기에 TypeAFK Equals 조건이 정확히 하나 필요합니다.");
+                if (condition.Length != 1) throw new InvalidOperationException(AfkText.NeedEquals);
                 int id = Mathf.RoundToInt(condition[0].threshold);
                 if (Mathf.Abs(id - condition[0].threshold) > 0.001f || id < 0 || result.branches.ContainsKey(id))
-                    throw new InvalidOperationException("중복 또는 잘못된 TypeAFK 분기입니다.");
+                    throw new InvalidOperationException(AfkText.InvalidBranch);
                 var machine = transition.destinationStateMachine;
                 if (!machine && transition.destinationState) owners.TryGetValue(transition.destinationState, out machine);
-                if (!machine || !children.Contains(machine)) throw new InvalidOperationException("AFK 분기를 독립 하위 상태 머신으로 확인할 수 없습니다.");
-                if (!destinations.Add(machine)) throw new InvalidOperationException("여러 TypeAFK 번호가 같은 분기를 가리킵니다.");
+                if (!machine || !children.Contains(machine)) throw new InvalidOperationException(AfkText.NotIndependentBranch);
+                if (!destinations.Add(machine)) throw new InvalidOperationException(AfkText.SameDestination);
                 result.branches[id] = new Branch { localId = id, machine = machine, entry = transition };
             }
-            if (!result.branches.ContainsKey(0)) throw new InvalidOperationException("0번 AFK_Default 분기가 없습니다.");
+            if (!result.branches.ContainsKey(0)) throw new InvalidOperationException(AfkText.MissingDefault);
             return result;
         }
 
@@ -1902,9 +2457,9 @@ namespace VRSuya.Installer.AFKTools
             {
                 if (conditions[i].parameter != "TypeAFK") continue;
                 if (conditions[i].mode != AnimatorConditionMode.Equals && conditions[i].mode != AnimatorConditionMode.NotEqual)
-                    throw new InvalidOperationException("TypeAFK 범위 조건은 현재 변환을 지원하지 않습니다.");
+                    throw new InvalidOperationException(AfkText.RangeCondition);
                 if (Mathf.Abs(conditions[i].threshold - from) > .001f)
-                    throw new InvalidOperationException("하나의 AFK 분기가 다른 모션 번호를 참조합니다. 전용 어댑터가 필요합니다.");
+                    throw new InvalidOperationException(AfkText.ForeignType);
                 conditions[i].threshold = to;
             }
             transition.conditions = conditions;
@@ -1913,10 +2468,11 @@ namespace VRSuya.Installer.AFKTools
         public static void EnsureFolder(string path)
         {
             var parts = path.Split('/'); string current = parts[0];
-            if (current != "Assets") throw new InvalidOperationException("출력은 Assets 아래여야 합니다.");
+            if (current != "Assets") throw new InvalidOperationException(AfkText.OutputUnderAssets);
             foreach (var part in parts.Skip(1)) { string next = current + "/" + part; if (!AssetDatabase.IsValidFolder(next)) AssetDatabase.CreateFolder(current, part); current = next; }
         }
     }
 
     #endregion
 }
+#endif
