@@ -74,12 +74,7 @@ namespace VRSuya.Installer.AFKTools
                 GUILayout.Label(AfkText.AvatarSection, EditorStyles.boldLabel);
                 GUILayout.Label(AfkText.AvatarHint, EditorStyles.miniLabel);
                 var nextAvatar = (GameObject)EditorGUILayout.ObjectField(avatar, typeof(GameObject), true, GUILayout.Height(40));
-                if (nextAvatar != avatar)
-                {
-                    ClearMessage();
-                    try { avatar = nextAvatar ? SceneInstaller.ResolveAvatar(nextAvatar) : null; }
-                    catch (Exception e) { error = e.Message; }
-                }
+                if (nextAvatar != avatar) SelectAvatar(nextAvatar);
                 if (avatar) GUILayout.Label("✓ " + avatar.name, EditorStyles.miniLabel);
                 GUILayout.Space(20);
                 GUILayout.Label(AfkText.PrefabSection, EditorStyles.boldLabel);
@@ -123,6 +118,15 @@ namespace VRSuya.Installer.AFKTools
                 if (applied && GUILayout.Button(AfkText.SelectResult, EditorStyles.linkLabel)) Selection.activeGameObject = applied;
             }
         }
+        private void SelectAvatar(GameObject candidate)
+        {
+            ClearMessage();
+            avatar = null;
+            if (!candidate) return;
+            try { avatar = SceneInstaller.ResolveAvatar(candidate); }
+            catch (InvalidOperationException e) { error = e.Message; }
+        }
+
         private void OnInspectorUpdate()
         {
             if (displayedLanguage != Translator.LanguageIndex) Repaint();
@@ -165,6 +169,8 @@ namespace VRSuya.Installer.AFKTools
     }
 
     #endregion
+
+    #region 다국어 문구
 
     // Core Translator owns the shared language selection (English, Korean, Japanese).
     internal static class AfkText
@@ -473,30 +479,8 @@ namespace VRSuya.Installer.AFKTools
             }
         }
 
-        internal static string ReportTitle => InLanguage(
-            "# VRSuya AFK Tools generation report\n\n",
-            "# VRSuya AFK Tools 생성 보고서\n\n",
-            "# VRSuya AFK Tools 生成レポート\n\n");
-        internal static string ReportTime => InLanguage(
-            "Generated: ",
-            "생성 시간: ",
-            "生成日時： ");
-        internal static string ReportOutput => InLanguage(
-            "\nOutput: `{0}`\n\nThe generated prefab uses the original models, materials, textures, VRSuya Installer and Modular Avatar. It adds no tool-specific runtime component. Apply installs it on the selected scene avatar.",
-            "\n출력: `{0}`\n\n원본 상품 에셋은 수정하지 않습니다. 생성물은 원본 모델·마테리얼·텍스처 및 기존 VRSuya Installer/MA에 의존합니다. 툴 전용 런타임 컴포넌트는 없습니다. 적용 버튼은 생성 후 선택한 씬 캐릭터에 결과를 설치합니다.",
-            "\n出力先：`{0}`\n\n生成したプレハブは元のモデル・マテリアル・テクスチャ、VRSuya Installer、Modular Avatarを使用します。ツール専用のランタイムコンポーネントは追加しません。「適用」で選択中のシーンアバターに導入します。");
-        internal static string ReportMotions => InLanguage(
-            "\n## Motions\n\n| TypeAFK | Menu |\n|---|---|\n| 0 | Default AFK ({0}) |",
-            "\n## 모션\n\n| TypeAFK | 메뉴 |\n|---|---|\n| 0 | 기본 AFK ({0}) |",
-            "\n## モーション\n\n| TypeAFK | メニュー |\n|---|---|\n| 0 | デフォルトAFK ({0}) |");
-        internal static string ReportInstallation => InLanguage(
-            "\n## Installation\n\nApply places the combined prefab under the avatar and replaces the recognized AFK installation. Ctrl+Z undoes the scene change. Generated assets are kept.\n\nKeep the output root name and Modules hierarchy. Run an NDMF test build. In VRChat, check the default and each motion, early exit, switching and remote sync.",
-            "\n## 적용\n\n적용 버튼은 통합 프리팹을 캐릭터 아래에 넣고 확인된 기존 AFK 설치를 교체합니다. Ctrl+Z로 씬 변경을 되돌릴 수 있습니다. 생성 에셋은 남습니다.\n\n결과 루트 이름 및 Modules 계층을 유지하세요. NDMF 테스트 빌드와 VRChat에서 기본/각 모션/중도 해제/모션 전환/원격 동기화를 확인하세요.",
-            "\n## 適用\n\n「適用」は統合プレハブをアバターの子に配置し、認識した既存のAFKを置き換えます。Ctrl+Zでシーンの変更を元に戻せます。生成したアセットは残ります。\n\nルート名とModulesの階層を維持してください。NDMFテストビルドを行い、VRChatでデフォルトと各モーション、途中解除、切り替え、リモート同期を確認してください。");
-        internal static string ReportValidation => InLanguage(
-            "\n## Validation\n\nSaved graph references and installation counts passed validation. Test playback and upload separately. More-AFK is supported for the Phone setup.",
-            "\n## 검증 범위\n\n저장된 그래프 참조와 설치 개수 검사는 통과했습니다. 이 생성은 실제 아바타 재생 또는 업로드 검증을 대신하지 않습니다. More-AFK는 Phone 구조를 지원합니다.",
-            "\n## 検証範囲\n\n保存したグラフの参照と設定数を確認しました。実際のアバターでの再生とアップロードは別途確認してください。More-AFKはPhone構成に対応しています。");
+        internal static string GeneratedPrefab => InLanguage(
+            "Generated prefab", "생성된 프리팹", "生成したプレハブ");
         internal static string DriverConflict => InLanguage(
             "{0} / {1}: Conflicting shared Parameter Driver settings ({2}).",
             "{0} / {1}: 공통 Parameter Driver 설정 충돌 ({2}).",
@@ -505,6 +489,10 @@ namespace VRSuya.Installer.AFKTools
             "Conflicting parameter types: ",
             "파라미터 타입 충돌: ",
             "パラメーターの型が競合しています： ");
+        internal static string ParameterDefaultConflict => InLanguage(
+            "Parameter '{0}' has different defaults: {1} = {2}, {3} = {4}.",
+            "파라미터 '{0}'의 기본값이 다릅니다: {1} = {2}, {3} = {4}.",
+            "パラメーター「{0}」の初期値が異なります：{1} = {2}、{3} = {4}。");
         internal static string SingleBranchTransition => InLanguage(
             "Cannot convert transition conditions for this single AFK branch: ",
             "단일 AFK 분기의 전환 조건을 변환할 수 없습니다: ",
@@ -699,6 +687,8 @@ namespace VRSuya.Installer.AFKTools
             "出力先はAssets配下に指定してください。");
     }
 
+    #endregion
+
     #region 적용 순서와 씬 교체
 
     public sealed class SceneApplyResult
@@ -803,6 +793,7 @@ namespace VRSuya.Installer.AFKTools
                 PrefabUtility.RecordPrefabInstancePropertyModifications(instance.transform);
                 EditorSceneManager.MarkSceneDirty(avatar.scene);
                 Undo.CollapseUndoOperations(undoGroup);
+                Debug.Log(generated.summary, instance);
                 return new SceneApplyResult { instance = instance, generated = generated, replacedCount = installations.Count, defaultFallbackReason = analysis.fallbackReason };
             }
             catch
@@ -826,7 +817,9 @@ namespace VRSuya.Installer.AFKTools
                 string folder = Path.GetDirectoryName(path)?.Replace('\\', '/');
                 string recipe = folder + "/Recipe.json";
                 var sourceMerges = source.GetComponentsInChildren<ModularAvatarMergeAnimator>(true);
-                bool generated = sourceMerges.Length == 2 && source.transform.Find("Modules") && sourceMerges.All(m => m.transform == source.transform && m.animator && AssetDatabase.GetAssetPath(m.animator).StartsWith(folder + "/", StringComparison.Ordinal)) && File.Exists(recipe) && File.Exists(folder + "/Report.md");
+                bool generated = sourceMerges.Length == 2 && source.transform.Find("Modules") && File.Exists(recipe)
+                    && sourceMerges.All(m => m.transform == source.transform && m.animator
+                        && AssetDatabase.GetAssetPath(m.animator).StartsWith(folder + "/", StringComparison.Ordinal));
                 if (generated)
                     result.Add(new Installation { root = root, previous = Recipe.Load(recipe) });
                 else if (inputs.Contains(source))
@@ -868,25 +861,7 @@ namespace VRSuya.Installer.AFKTools
                 var m = Read(prefab, a, s.sceneAvatar != null); if (m != null) a.modules.Add(m);
             }
             if (s.prefabs.Any(p => !p)) a.Error(AfkText.EmptySlot);
-            if (s.defaultSourcePrefab)
-                a.defaultSource = a.modules.FirstOrDefault(m => m.prefab == s.defaultSourcePrefab) ?? Read(s.defaultSourcePrefab, a, s.sceneAvatar != null);
-            else a.defaultSource = a.modules.FirstOrDefault(m => m.fx.Count == 2 && !m.actionShape.singleMotion);
-            bool sdkDefault = s.sdkDefaultAvatar && SceneInstaller.UsesSdkDefault(s.sdkDefaultAvatar);
-            if (a.defaultSource == null && (sdkDefault || s.sceneAvatar != null)) a.defaultSource = a.modules.FirstOrDefault(m => !m.actionShape.singleMotion) ?? (s.sceneAvatar != null ? a.modules.FirstOrDefault() : null);
-            // 씬 적용에서는 Descriptor에서 읽은 Action이 0번 모션을 제공한다.
-            // 상품의 AFK_Default 이름은 상품만으로 기본 모션을 선택할 때 확인한다.
-            bool characterDefault = a.defaultSource != null && !a.defaultSource.actionShape.singleMotion && !string.IsNullOrEmpty(a.defaultSource.profile);
-            bool descriptorDefault = s.sceneAvatar != null && a.defaultSource != null;
-            bool sdkProductDefault = sdkDefault && a.defaultSource != null && a.defaultSource.actionShape.branches.ContainsKey(0);
-            if (!descriptorDefault && !characterDefault && !sdkProductDefault)
-                a.Error(AfkText.NeedDefaultSource);
-            if (sdkProductDefault && !characterDefault && !descriptorDefault)
-            {
-                var defaults = GraphUtility.States(a.defaultSource.actionShape.branches[0].machine)
-                    .Select(st => st.motion is AnimationClip clip ? GraphUtility.EffectiveClip(a.defaultSource.action.animator, clip) : st.motion).Where(m => m).ToArray();
-                if (defaults.Length != 1 || AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(defaults[0])) != "806c242c97b686d4bac4ad50defd1fdb")
-                    a.Error(a.defaultSource.prefab.name + AfkText.DefaultMismatch);
-            }
+            SelectDefaultSource(a, s);
             var all = a.modules.Concat(new[] { a.defaultSource }).Where(m => m != null).Distinct().ToArray();
             const string afkPrefabPrefix = "VRSuya_AFK_Modular_";
             var productProfiles = all.Select(m => m.profile ?? (m.fx.Count == 2 && !m.actionShape.singleMotion && m.prefab.name.StartsWith(afkPrefabPrefix, StringComparison.Ordinal)
@@ -922,23 +897,7 @@ namespace VRSuya.Installer.AFKTools
                 a.Warn(AfkText.StructuralCheck);
             }
             a.Warn(AfkText.ReplaceOriginal);
-            if (a.CanGenerate && s.sceneAvatar != null)
-            {
-                try
-                {
-                    a.defaultAction = AvatarDefault.Read(s.sceneAvatar);
-                    a.defaultFx = a.defaultAction.ReadRemovedFx(a.Sources
-                        .SelectMany(m => m.prefab.GetComponentsInChildren<VRSuya.Modular.RemoveAnimatorLayer>(true))
-                        .SelectMany(r => r.TargetLayerName ?? Array.Empty<string>()));
-                }
-                catch (AvatarDefault.UnsupportedGraph e)
-                {
-                    // 0번 Action과 FX는 한 쌍이다. 상품 그래프의 오류는 여기서 대체하지 않는다.
-                    a.defaultAction = AvatarDefault.ReadSdk(s.sceneAvatar);
-                    a.fallbackReason = e.Message;
-                    a.Warn(AfkText.DefaultWarning + e.Message);
-                }
-            }
+            if (a.CanGenerate && s.sceneAvatar != null) ReadAvatarDefault(a, s.sceneAvatar);
             if (a.CanGenerate)
             {
                 foreach (CurveGroup group in Enum.GetValues(typeof(CurveGroup)))
@@ -947,6 +906,48 @@ namespace VRSuya.Installer.AFKTools
             a.fingerprint = Fingerprint(s);
             return a;
         }
+        // 상품은 통합 그래프의 틀을 제공한다. 씬 캐릭터의 0번 모션은 아래에서 별도로 읽는다.
+        private static void SelectDefaultSource(Analysis a, BuildSettings s)
+        {
+            if (s.defaultSourcePrefab)
+                a.defaultSource = a.modules.FirstOrDefault(m => m.prefab == s.defaultSourcePrefab) ?? Read(s.defaultSourcePrefab, a, s.sceneAvatar != null);
+            else a.defaultSource = a.modules.FirstOrDefault(m => m.fx.Count == 2 && !m.actionShape.singleMotion);
+            bool sdkDefault = s.sdkDefaultAvatar && SceneInstaller.UsesSdkDefault(s.sdkDefaultAvatar);
+            if (a.defaultSource == null && (sdkDefault || s.sceneAvatar != null)) a.defaultSource = a.modules.FirstOrDefault(m => !m.actionShape.singleMotion) ?? (s.sceneAvatar != null ? a.modules.FirstOrDefault() : null);
+            // 씬 적용에서는 Descriptor에서 읽은 Action이 0번 모션을 제공한다.
+            // 상품의 AFK_Default 이름은 상품만으로 기본 모션을 선택할 때 확인한다.
+            bool characterDefault = a.defaultSource != null && !a.defaultSource.actionShape.singleMotion && !string.IsNullOrEmpty(a.defaultSource.profile);
+            bool descriptorDefault = s.sceneAvatar != null && a.defaultSource != null;
+            bool sdkProductDefault = sdkDefault && a.defaultSource != null && a.defaultSource.actionShape.branches.ContainsKey(0);
+            if (!descriptorDefault && !characterDefault && !sdkProductDefault)
+                a.Error(AfkText.NeedDefaultSource);
+            if (sdkProductDefault && !characterDefault && !descriptorDefault)
+            {
+                var defaults = GraphUtility.States(a.defaultSource.actionShape.branches[0].machine)
+                    .Select(st => st.motion is AnimationClip clip ? GraphUtility.EffectiveClip(a.defaultSource.action.animator, clip) : st.motion).Where(m => m).ToArray();
+                if (defaults.Length != 1 || AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(defaults[0])) != "806c242c97b686d4bac4ad50defd1fdb")
+                    a.Error(a.defaultSource.prefab.name + AfkText.DefaultMismatch);
+            }
+        }
+
+        private static void ReadAvatarDefault(Analysis a, GameObject avatar)
+        {
+            try
+            {
+                a.defaultAction = AvatarDefault.Read(avatar);
+                a.defaultFx = a.defaultAction.ReadRemovedFx(a.Sources
+                    .SelectMany(m => m.prefab.GetComponentsInChildren<VRSuya.Modular.RemoveAnimatorLayer>(true))
+                    .SelectMany(r => r.TargetLayerName ?? Array.Empty<string>()));
+            }
+            catch (AvatarDefault.UnsupportedGraph e)
+            {
+                // 0번 Action과 FX는 한 쌍이다. 상품 그래프의 오류는 여기서 대체하지 않는다.
+                a.defaultAction = AvatarDefault.ReadSdk(avatar);
+                a.fallbackReason = e.Message;
+                a.Warn(AfkText.DefaultWarning + e.Message);
+            }
+        }
+
         // 원본 메뉴의 TypeAFK 값은 상품 내부 번호다. 재적용 시에도 상품 키로 아이콘을 찾는다.
         private static void ReadMenu(VRCExpressionsMenu menu, Module module, Texture2D parentIcon,
             HashSet<VRCExpressionsMenu> visited, Analysis analysis)
@@ -1185,7 +1186,9 @@ namespace VRSuya.Installer.AFKTools
     {
         public GameObject prefab;
         public AnimatorController action, fx;
-        public string folder, reportPath;
+        public string folder, summary;
+        [Obsolete("Use summary for generation details. Reports are now logged to the Unity Console.")]
+        public string reportPath;
     }
 
     #endregion
@@ -1231,7 +1234,9 @@ namespace VRSuya.Installer.AFKTools
         public static GenerationResult Generate(BuildSettings settings, Analysis reviewed)
         {
             if (reviewed == null || reviewed.fingerprint != Analyzer.Fingerprint(settings)) throw new InvalidOperationException(AfkText.SourceChanged);
-            return GenerateMapped(Analyzer.Inspect(settings, false));
+            var result = GenerateMapped(Analyzer.Inspect(settings, false));
+            Debug.Log(result.summary, result.prefab);
+            return result;
         }
 
         internal static GenerationResult GenerateMapped(Analysis a)
@@ -1245,29 +1250,8 @@ namespace VRSuya.Installer.AFKTools
             try
             {
                 var root = new GameObject(settings.prefabName); SceneManager.MoveGameObjectToScene(root, scene);
-                var container = new GameObject("Modules"); container.transform.SetParent(root.transform, false);
                 var modules = a.Sources.ToArray();
-                var roots = new Dictionary<Module, string>();
-                var usedNames = new HashSet<string>(StringComparer.Ordinal);
-                foreach (var m in modules)
-                {
-                    var copy = (GameObject)PrefabUtility.InstantiatePrefab(m.prefab, scene);
-                    PrefabUtility.UnpackPrefabInstance(copy, PrefabUnpackMode.Completely, InteractionMode.AutomatedAction);
-                    copy.transform.SetParent(container.transform, false);
-                    copy.name = m.prefab.name;
-                    if (!usedNames.Add(copy.name))
-                    {
-                        copy.name += "_" + m.guid;
-                        if (!usedNames.Add(copy.name)) throw new InvalidOperationException(AfkText.DuplicateObjectPath + copy.name);
-                    }
-                    roots[m] = root.name + "/Modules/" + copy.name;
-                    RebaseReferences(copy, m.prefab.name, roots[m]);
-                    foreach (var merge in copy.GetComponentsInChildren<ModularAvatarMergeAnimator>(true))
-                    { if (merge.deleteAttachedAnimator && merge.GetComponent<Animator>()) Object.DestroyImmediate(merge.GetComponent<Animator>()); Object.DestroyImmediate(merge); }
-                    Remove<ModularAvatarParameters>(copy); Remove<ModularAvatarMenuInstaller>(copy); Remove<MenuSelector>(copy); Remove<AnimationClipRenamer>(copy);
-                    // Common installer operations are centralized once on the output root.
-                    Remove<FixLocomotion>(copy); Remove<ChangeStandingPose>(copy); Remove<RemoveAnimatorLayer>(copy); Remove<RemoveFXMask>(copy);
-                }
+                var roots = CopyProductModules(root, modules);
                 CentralizeInstallers(root, modules, a, settings);
                 string animationFolder = folder + "/Animation"; GraphUtility.EnsureFolder(animationFolder);
                 using var assets = new GraphAssets(a);
@@ -1312,11 +1296,8 @@ namespace VRSuya.Installer.AFKTools
                 if (!success || !prefab) throw new InvalidOperationException(AfkText.SaveFailed);
                 ValidateSaved(prefab, action, fx, folder);
                 Recipe.Save(settings, folder + "/Recipe.json");
-                string reportPath = folder + "/Report.md";
-                File.WriteAllText(reportPath, Report(settings, a, folder), new UTF8Encoding(false));
                 AssetDatabase.ImportAsset(folder + "/Recipe.json");
-                AssetDatabase.ImportAsset(reportPath);
-                return new GenerationResult { prefab = prefab, action = action, fx = fx, folder = folder, reportPath = reportPath };
+                return new GenerationResult { prefab = prefab, action = action, fx = fx, folder = folder, summary = BuildSummary(a, prefabPath) };
             }
             catch
             {
@@ -1326,6 +1307,37 @@ namespace VRSuya.Installer.AFKTools
             }
             finally { EditorSceneManager.ClosePreviewScene(scene); }
         }
+        private static Dictionary<Module, string> CopyProductModules(GameObject root, Module[] modules)
+        {
+            var container = new GameObject("Modules"); container.transform.SetParent(root.transform, false);
+            var roots = new Dictionary<Module, string>();
+            var usedNames = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var m in modules)
+            {
+                var copy = (GameObject)PrefabUtility.InstantiatePrefab(m.prefab, root.scene);
+                PrefabUtility.UnpackPrefabInstance(copy, PrefabUnpackMode.Completely, InteractionMode.AutomatedAction);
+                copy.transform.SetParent(container.transform, false);
+                copy.name = m.prefab.name;
+                if (!usedNames.Add(copy.name))
+                {
+                    copy.name += "_" + m.guid;
+                    if (!usedNames.Add(copy.name)) throw new InvalidOperationException(AfkText.DuplicateObjectPath + copy.name);
+                }
+                roots[m] = root.name + "/Modules/" + copy.name;
+                RebaseReferences(copy, m.prefab.name, roots[m]);
+                foreach (var merge in copy.GetComponentsInChildren<ModularAvatarMergeAnimator>(true))
+                {
+                    var animator = merge.GetComponent<Animator>();
+                    if (merge.deleteAttachedAnimator && animator) Object.DestroyImmediate(animator);
+                    Object.DestroyImmediate(merge);
+                }
+                Remove<ModularAvatarParameters>(copy); Remove<ModularAvatarMenuInstaller>(copy); Remove<MenuSelector>(copy); Remove<AnimationClipRenamer>(copy);
+                // Common installer operations are centralized once on the output root.
+                Remove<FixLocomotion>(copy); Remove<ChangeStandingPose>(copy); Remove<RemoveAnimatorLayer>(copy); Remove<RemoveFXMask>(copy);
+            }
+            return roots;
+        }
+
         private static void Remove<T>(GameObject root) where T : Component { foreach (var c in root.GetComponentsInChildren<T>(true)) Object.DestroyImmediate(c); }
         private static void RebaseReferences(GameObject copy, string oldRoot, string newRoot)
         {
@@ -1395,16 +1407,15 @@ namespace VRSuya.Installer.AFKTools
                     throw new InvalidOperationException(AfkText.ExternalGraphReference + obj.name + " / " + AssetDatabase.GetAssetPath(obj));
             }
         }
-        private static string Report(BuildSettings s, Analysis a, string folder)
+        private static string BuildSummary(Analysis a, string prefabPath)
         {
-            var b = new StringBuilder(AfkText.ReportTitle);
-            b.AppendLine(AfkText.ReportTime + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
-            b.AppendLine(string.Format(AfkText.ReportOutput, folder));
-            b.AppendLine(string.Format(AfkText.ReportMotions, a.defaultAction?.Source ?? a.defaultSource.prefab.name));
-            foreach (var c in a.selectedMotions.Select(m => m.choice)) b.AppendLine("| " + c.id + " | " + c.label.Replace("|", "\\|") + " |");
-            b.AppendLine(AfkText.ReportInstallation);
-            b.AppendLine(AfkText.ReportValidation);
-            foreach (var issue in a.issues) b.AppendLine("\n- " + AfkText.Severity(issue.level) + ": " + issue.message);
+            var b = new StringBuilder("[AFK Tools] ");
+            b.Append(AfkText.GeneratedPrefab).Append(": ").AppendLine(prefabPath);
+            b.Append("TypeAFK 0 = ").Append(AfkText.DefaultLabel).Append(" (").Append(a.defaultAction?.Source ?? a.defaultSource.prefab.name).Append(')');
+            foreach (var motion in a.selectedMotions)
+                b.AppendLine().Append("TypeAFK ").Append(motion.choice.id).Append(" = ").Append(motion.choice.label);
+            foreach (var issue in a.issues)
+                b.AppendLine().Append(AfkText.Severity(issue.level)).Append(": ").Append(issue.message);
             return b.ToString();
         }
     }
@@ -1497,6 +1508,10 @@ namespace VRSuya.Installer.AFKTools
         private readonly AnimatorController output;
         private readonly string folder;
         private readonly GraphAssets assets;
+        // Face와 Objects는 같은 FX 컨트롤러에 쓰므로 파라미터 정의도 공유한다.
+        private readonly Dictionary<string, (AnimatorControllerParameter parameter, string product)> parameters =
+            new Dictionary<string, (AnimatorControllerParameter, string)>();
+
         public GraphCompiler(AnimatorController output, string folder, GraphAssets assets)
         { this.output = output; this.folder = folder; this.assets = assets; }
         private ControllerShape Clone(Module module, CurveGroup group, ClipCompiler compiler, BuildSettings settings)
@@ -1523,18 +1538,48 @@ namespace VRSuya.Installer.AFKTools
             var s = inputShape;
             var shape = new ControllerShape { controller = output, root = (AnimatorStateMachine)map[s.root], prepare = (AnimatorState)map[s.prepare] };
             foreach (var b in s.branches.Values) shape.branches[b.localId] = new Branch { localId = b.localId, machine = (AnimatorStateMachine)map[b.machine], entry = (AnimatorStateTransition)map[b.entry] };
-            AddParameters(source);
             if (inputShape.singleMotion) AdaptSingleMotion(shape);
             return shape;
         }
 
-        private void AddParameters(AnimatorController source)
+        private void AddParameters(Module module, CurveGroup group)
         {
-            foreach (var parameter in source.parameters)
+            var shape = module.layers[group].shape;
+            foreach (var parameter in shape.controller.parameters)
             {
-                var current = output.parameters.FirstOrDefault(p => p.name == parameter.name);
-                if (current != null && current.type != parameter.type) throw new InvalidOperationException(AfkText.ParameterTypeConflict + parameter.name);
-                if (current == null) output.AddParameter(parameter);
+                if (!parameters.TryGetValue(parameter.name, out var previous))
+                {
+                    parameters.Add(parameter.name, (parameter, module.prefab.name));
+                    output.AddParameter(parameter);
+                    continue;
+                }
+                if (previous.parameter.type != parameter.type)
+                    throw new InvalidOperationException(AfkText.ParameterTypeConflict + parameter.name);
+                // AFK는 VRChat이, TypeAFK는 통합 메뉴가 설정한다.
+                if (parameter.name == "AFK" || parameter.name == "TypeAFK") continue;
+                var first = ParameterDefault(previous.parameter);
+                var next = ParameterDefault(parameter);
+                if (!Equals(first, next))
+                    throw new InvalidOperationException(string.Format(AfkText.ParameterDefaultConflict, parameter.name,
+                        previous.product, first, module.prefab.name, next));
+            }
+            // 원본 Phone에는 선택 파라미터가 없으므로 첫 단일 모션에서 한 번만 추가한다.
+            if (shape.singleMotion && !parameters.ContainsKey("TypeAFK"))
+            {
+                var selector = new AnimatorControllerParameter { name = "TypeAFK", type = AnimatorControllerParameterType.Int };
+                parameters.Add(selector.name, (selector, module.prefab.name));
+                output.AddParameter(selector);
+            }
+        }
+
+        private static object ParameterDefault(AnimatorControllerParameter parameter)
+        {
+            switch (parameter.type)
+            {
+                case AnimatorControllerParameterType.Bool: return parameter.defaultBool;
+                case AnimatorControllerParameterType.Int: return parameter.defaultInt;
+                case AnimatorControllerParameterType.Float: return parameter.defaultFloat;
+                default: return null; // Trigger has no configurable initial value.
             }
         }
 
@@ -1575,7 +1620,6 @@ namespace VRSuya.Installer.AFKTools
                     compiler.ApplyCompanion(state, (AnimatorState)map[state]);
                 AdaptSingleMotion(result);
             }
-            AddParameters(input.controller);
             return result;
         }
 
@@ -1616,8 +1660,9 @@ namespace VRSuya.Installer.AFKTools
                 }
                 else throw new InvalidOperationException(AfkText.SingleBranchConditions + state.name);
             }
-            if (!output.parameters.Any(p => p.name == "TypeAFK")) output.AddParameter("TypeAFK", AnimatorControllerParameterType.Int);
         }
+
+        private const float BranchRowHeight = 50f;
 
         public AnimatorStateMachine Merge(BuildSettings settings, Analysis analysis, CurveGroup group, Dictionary<Module, string> roots)
         {
@@ -1628,15 +1673,34 @@ namespace VRSuya.Installer.AFKTools
             for (int i = 0; i < modules.Length; i++)
             {
                 var m = modules[i];
+                AddParameters(m, group);
                 var clips = folder + "/" + group + "_" + i;
                 var compiler = new ClipCompiler(m, m.layers[group].merge, group, roots[m], clips,
                     settings.sceneAvatar ?? settings.validationAvatar, assets);
                 compilers.Add(m, compiler);
                 graphs.Add(m, i == 0 ? Clone(m, group, compiler, settings) :
                     CloneBranches(m.layers[group].shape, plan.ids[m], compiler));
-
             }
             var canonical = graphs[analysis.defaultSource];
+            var root = canonical.root;
+            var defaultPosition = PrepareDefaultBranch(canonical);
+            var rootStates = root.states.Select(s => s.state).ToDictionary(s => s.name);
+            var selected = new List<(ControllerShape graph, Branch branch, int id)> { (canonical, canonical.branches[0], 0) };
+            foreach (var motion in analysis.selectedMotions)
+            {
+                var graph = graphs[motion.module];
+                selected.Add((graph, graph.branches[motion.localId], motion.choice.id));
+            }
+            ConnectBranches(canonical, selected, rootStates, defaultPosition);
+            MergeCommonStates(plan, group, compilers, rootStates);
+            AddInvalidTypeRecovery(canonical, selected.Select(item => item.id), defaultPosition);
+            var nativeFx = group == CurveGroup.Face ? analysis.defaultFx : null;
+            (nativeFx ?? analysis.defaultAction)?.Write(canonical, group, folder, nativeFx != null, assets);
+            return root;
+        }
+
+        private static Vector3 PrepareDefaultBranch(ControllerShape canonical)
+        {
             var root = canonical.root;
             // 원본의 기본 분기 위치를 기준으로 사용한다. 단일 모션 원본은 기존 1번 자리가 기준이다.
             var templateBranch = canonical.branches.TryGetValue(0, out var originalDefault) ? originalDefault : canonical.branches[1];
@@ -1651,19 +1715,19 @@ namespace VRSuya.Installer.AFKTools
                 entry.AddCondition(AnimatorConditionMode.Equals, 0, "TypeAFK");
                 canonical.branches[0] = new Branch { localId = 0, entry = entry, machine = placeholder };
             }
-            var rootStates = root.states.Select(s => s.state).ToDictionary(s => s.name);
-            var selected = new List<(ControllerShape graph, Branch branch, int id)> { (canonical, canonical.branches[0], 0) };
-            foreach (var motion in analysis.selectedMotions)
-            {
-                var graph = graphs[motion.module];
-                selected.Add((graph, graph.branches[motion.localId], motion.choice.id));
-            }
+            return defaultPosition;
+        }
+
+        private static void ConnectBranches(ControllerShape canonical,
+            List<(ControllerShape graph, Branch branch, int id)> selected,
+            Dictionary<string, AnimatorState> rootStates, Vector3 branchPosition)
+        {
+            var root = canonical.root;
+            // 원본 출구 전환은 분기를 떼어내기 전에 보관해야 한다.
             var machineExits = selected.ToDictionary(item => item.branch, item => item.branch.exits ?? item.graph.root.GetStateMachineTransitions(item.branch.machine));
             root.stateMachines = Array.Empty<ChildAnimatorStateMachine>();
             canonical.prepare.transitions = Array.Empty<AnimatorStateTransition>();
             var entries = new List<AnimatorStateTransition>(selected.Count);
-            const float branchRowHeight = 50f;
-            var branchPosition = defaultPosition;
             foreach (var item in selected)
             {
                 var branchObjects = GraphUtility.Machines(item.branch.machine).Cast<Object>()
@@ -1697,11 +1761,16 @@ namespace VRSuya.Installer.AFKTools
                     if (driver.parameters.Any(p => p.name == "TypeAFK")) throw new InvalidOperationException(AfkText.InternalTypeDriver);
                 item.branch.machine.name = "AFK_" + item.id + "_" + item.branch.machine.name.Replace("AFK_", "");
                 root.AddStateMachine(item.branch.machine, branchPosition);
-                branchPosition.y += branchRowHeight;
+                branchPosition.y += BranchRowHeight;
                 root.SetStateMachineTransitions(item.branch.machine, machineExits[item.branch]);
                 entries.Add(item.branch.entry);
             }
             canonical.prepare.transitions = entries.ToArray();
+        }
+
+        private void MergeCommonStates(LayerPlan plan, CurveGroup group,
+            Dictionary<Module, ClipCompiler> compilers, Dictionary<string, AnimatorState> rootStates)
+        {
             // Combine common reset motions per family, and preserve additional Busy drivers.
             foreach (var state in rootStates.Values)
             {
@@ -1724,18 +1793,19 @@ namespace VRSuya.Installer.AFKTools
                 }
             }
             if (plan.normalizeWeight) NormalizeAfkActionWeight(rootStates);
+        }
+
+        private static void AddInvalidTypeRecovery(ControllerShape canonical, IEnumerable<int> validIds, Vector3 defaultPosition)
+        {
             // Saved values from a removed motion recover to character default, without another synced parameter.
-            var reset = root.AddState("Recover invalid TypeAFK", defaultPosition + Vector3.down * branchRowHeight);
+            var reset = canonical.root.AddState("Recover invalid TypeAFK", defaultPosition + Vector3.down * BranchRowHeight);
             var pd = reset.AddStateMachineBehaviour<VRCAvatarParameterDriver>();
             pd.localOnly = true;
             pd.parameters.Add(new VRC.SDKBase.VRC_AvatarParameterDriver.Parameter { name = "TypeAFK", value = 0, type = VRC.SDKBase.VRC_AvatarParameterDriver.ChangeType.Set });
             var invalid = canonical.prepare.AddTransition(reset); invalid.hasExitTime = false; invalid.duration = 0;
-            foreach (int id in selected.Select(s => s.id)) invalid.AddCondition(AnimatorConditionMode.NotEqual, id, "TypeAFK");
+            foreach (int id in validIds) invalid.AddCondition(AnimatorConditionMode.NotEqual, id, "TypeAFK");
             var back = reset.AddTransition(canonical.prepare); back.hasExitTime = false; back.duration = 0;
             back.AddCondition(AnimatorConditionMode.Equals, 0, "TypeAFK");
-            var nativeFx = group == CurveGroup.Face ? analysis.defaultFx : null;
-            (nativeFx ?? analysis.defaultAction)?.Write(canonical, group, folder, nativeFx != null, assets);
-            return root;
         }
 
         // 진입 시 Action을 즉시 켜고, 종료 자세 전환이 끝난 Restore에서 끈다.
@@ -1899,6 +1969,7 @@ namespace VRSuya.Installer.AFKTools
             if (cache.TryGetValue(original, out var known)) return known;
             var source = GraphUtility.EffectiveClip(merge.animator, original);
             var output = UnityEngine.Object.Instantiate(source);
+            assets.QueueClip(output, folder + "/Clip_" + index++ + ".anim");
             output.name = source.name;
             foreach (var b in AnimationUtility.GetCurveBindings(output)) AnimationUtility.SetEditorCurve(output, b, null);
             foreach (var b in AnimationUtility.GetObjectReferenceCurveBindings(output)) AnimationUtility.SetObjectReferenceCurve(output, b, null);
@@ -1918,7 +1989,6 @@ namespace VRSuya.Installer.AFKTools
             }
             // SDK motion names are significant to VRSuya ChangeStandingPose.
             if (!output.name.StartsWith("proxy_")) output.name = module.prefab.name + "_" + group + "_" + source.name;
-            assets.QueueClip(output, folder + "/Clip_" + index++ + ".anim");
             cache[original] = output; return output;
         }
         private bool Include(bool owned) { return group == CurveGroup.All || (group == CurveGroup.Objects ? owned : !owned); }
@@ -1944,19 +2014,24 @@ namespace VRSuya.Installer.AFKTools
                 if (!string.IsNullOrEmpty(merge.relativePathRoot.referencePath))
                     throw new InvalidOperationException(AfkText.ExplicitRelativeRoot + module.prefab.name);
                 relative = string.IsNullOrEmpty(owner) ? binding.path : owner + (string.IsNullOrEmpty(binding.path) ? "" : "/" + binding.path);
-                if (relative.Length > 0 && !module.prefab.transform.Find(relative))
-                {
-                    // Sio의 서기 클립처럼 상품 소품과 별도로 캐릭터 자체의 오브젝트를 제어할 수 있다.
-                    if (avatar && AnimationUtility.GetAnimatedObject(avatar, binding)) return binding;
-                    throw new InvalidOperationException(string.Format(AfkText.MissingBinding, module.prefab.name, clip.name, binding.path, binding.propertyName, relative, avatar ? avatar.name : AfkText.Unspecified));
-                }
             }
             else
             {
                 if (binding.path == module.prefab.name) relative = "";
                 else if (binding.path.StartsWith(module.prefab.name + "/", StringComparison.Ordinal)) relative = binding.path.Substring(module.prefab.name.Length + 1);
             }
-            if (relative != null) { owned = true; binding.path = rootPath + (relative.Length == 0 ? "" : "/" + relative); }
+            if (relative == null) return binding;
+            if (relative.Length > 0 && !module.prefab.transform.Find(relative))
+            {
+                // Some relative clips animate the avatar itself (e.g. Sio's mouse). An absolute
+                // path starting at the product root, however, must resolve inside that product.
+                if (merge.pathMode == MergeAnimatorPathMode.Relative && avatar && AnimationUtility.GetAnimatedObject(avatar, binding))
+                    return binding;
+                throw new InvalidOperationException(string.Format(AfkText.MissingBinding, module.prefab.name, clip.name,
+                    binding.path, binding.propertyName, relative, avatar ? avatar.name : AfkText.Unspecified));
+            }
+            owned = true;
+            binding.path = rootPath + (relative.Length == 0 ? "" : "/" + relative);
             return binding;
         }
 
@@ -1965,7 +2040,9 @@ namespace VRSuya.Installer.AFKTools
             var inputs = motions.Where(m => m).Distinct().ToArray();
             if (inputs.Any(m => !(m is AnimationClip))) throw new InvalidOperationException(AfkText.CommonBlendTree + name);
             if (inputs.Length == 0) return null;
-            var result = UnityEngine.Object.Instantiate((AnimationClip)inputs[0]); result.name = name;
+            var result = UnityEngine.Object.Instantiate((AnimationClip)inputs[0]);
+            result.name = name.Replace(' ', '_');
+            assets.QueueClip(result, folder + "/" + result.name + ".anim");
             // Canonical default source has precedence for shared avatar bindings; other modules add their prop resets.
             var floatKeys = new HashSet<EditorCurveBinding>(AnimationUtility.GetCurveBindings(result));
             var objectKeys = new HashSet<EditorCurveBinding>(AnimationUtility.GetObjectReferenceCurveBindings(result));
@@ -1991,8 +2068,6 @@ namespace VRSuya.Installer.AFKTools
                 }
                 if (conflicts.Count > 0) assets.Warn(string.Format(AfkText.OverlappingCurves, name, clip.name, conflicts.Count, conflicts[0]));
             }
-            result.name = name.Replace(' ', '_');
-            assets.QueueClip(result, folder + "/" + result.name + ".anim");
             return result;
         }
     }
